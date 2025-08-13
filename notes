@@ -1,4 +1,0 @@
-Commands to run on arch linux
-
-solana-test-validator
-anchor test --skip-local-validator
