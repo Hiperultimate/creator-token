@@ -18,4 +18,8 @@ pub mod creator_token {
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         initialize::handler(ctx)
     }
+
+    pub fn create_creator_identity(ctx: Context<CreatorIdentity>, user_name : String, proof_url: String) -> Result<()> {
+        creator_identity::handler(ctx,user_name,proof_url)
+    }
 }
