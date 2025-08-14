@@ -24,7 +24,7 @@ describe("creator-token", () => {
     console.log("Your transaction signature", tx);
   });
 
-  it("Creating creator identity with incorrect length user_name and proof_url", async () => { 
+  it("Fails in creating creator identity with incorrect length user_name and proof_url", async () => { 
     const valid_username = "Jonathan Joestar";
     const valid_url = "https://proof_url.com/";
     const invalid_username = valid_username.repeat(10);
@@ -33,13 +33,16 @@ describe("creator-token", () => {
     // Invalid username , valid URL
     try {
       const tx = await program.methods
-        .createCreatorIdentity(invalid_username.repeat(5), valid_url)
+        .createCreatorIdentity(invalid_username, valid_url)
         .accounts({creator : creator.publicKey})
         .signers([creator])
         .rpc();
       
-      assert.fail("Expected transaction to fail");
+      assert.fail(`Expected transaction to fail but it succeeded instead :${tx}`);
     } catch (err) {
+      if(err.name === "AssertionError"){
+        throw err
+      }
       const anchorErrCode = err.error.errorCode.code;
       expect(anchorErrCode).eq('NameTooLong');
     }
@@ -52,12 +55,33 @@ describe("creator-token", () => {
         .signers([creator])
         .rpc();
 
-      assert.fail("Expected transaction to fail");
+      assert.fail(`Expected transaction to fail but it succeeded instead :${tx}`);
     } catch (err) {
+      if(err.name === "AssertionError"){
+        throw err
+      }
       const anchorErrCode = err.error.errorCode.code;
       expect(anchorErrCode).eq("UrlTooLong");
     }
   })
 
   // Write success test for creator identity 
+  it("Success creating creator identity profile", async () => { 
+    const valid_username = "Jonathan Joestar";
+    const valid_url = "https://proof_url.com/";
+    const tx = await program.methods
+        .createCreatorIdentity(valid_username, valid_url)
+        .accounts({ creator: creator.publicKey })
+        .signers([creator])
+        .rpc();
+    console.log("Successfully created creator identity profile :", tx);
+
+    const identitySeed = [Buffer.from("identity"), creator.publicKey.toBuffer()];
+    const [identityAddress, _] = anchor.web3.PublicKey.findProgramAddressSync(identitySeed,program.programId);
+
+    const identityStoredData = await program.account.identity.fetch(identityAddress, "confirmed");
+    expect(identityStoredData.creatorWallet.toBase58).eq(creator.publicKey.toBase58);
+    expect(identityStoredData.creatorName).eq(valid_username);
+    expect(identityStoredData.proofUrl).eq(valid_url);
+  })
 });
