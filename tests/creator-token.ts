@@ -76,6 +76,16 @@ describe("creator-token", () => {
         .rpc();
     console.log("Successfully created creator identity profile :", tx);
 
+    const latestBlock = await provider.connection.getLatestBlockhash();
+    await program.provider.connection.confirmTransaction(
+      {
+        blockhash: latestBlock.blockhash,
+        lastValidBlockHeight: latestBlock.lastValidBlockHeight,
+        signature: tx,
+      },
+      "confirmed"
+    );
+
     const identitySeed = [Buffer.from("identity"), creator.publicKey.toBuffer()];
     const [identityAddress, _] = anchor.web3.PublicKey.findProgramAddressSync(identitySeed,program.programId);
 
