@@ -2,7 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { CreatorToken } from "../target/types/creator_token";
 import { assert, expect } from "chai";
-import { getMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
 describe("creator-token", () => {
   // Configure the client to use the local cluster.
@@ -97,8 +97,11 @@ describe("creator-token", () => {
   })
   
   it("Success creating a creators token", async () => {
+    const creatorSupplyTokenAmount = 100;
     const tokenDecimals = 6;
-    const initialSupply = new anchor.BN(1000000);
+    const initialSupply = new anchor.BN(
+      Math.pow(10, tokenDecimals) * creatorSupplyTokenAmount
+    );
     // Call creator token
     const tx = await program.methods
       .createCreatorToken(tokenDecimals, initialSupply)
@@ -111,7 +114,7 @@ describe("creator-token", () => {
 
     console.log("Checking success token creators :", tx);
 
-    // check if made token is live
+    // New SPL Token checks
     const identityProofSeed = [
       Buffer.from("identity"),
       creator.publicKey.toBuffer(),
@@ -138,15 +141,43 @@ describe("creator-token", () => {
       },
       "confirmed"
     );
-    const creatorToken = await getMint(provider.connection, tokenMintAddress, "confirmed", TOKEN_2022_PROGRAM_ID);
-    console.log("Checking TOKEN DETAILS : ", creatorToken);
+    const creatorToken = await getMint(
+      provider.connection,
+      tokenMintAddress,
+      "confirmed",
+      TOKEN_2022_PROGRAM_ID
+    );
+    // console.log("Checking TOKEN DETAILS : ", creatorToken);
 
     const mintAuthoritySeed = [Buffer.from("mint_authority")];
-    const [mintAuthority, _mintAuthBump] = await anchor.web3.PublicKey.findProgramAddressSync(mintAuthoritySeed, program.programId);
-    
-    expect(creatorToken.freezeAuthority.toBase58()).eq(mintAuthority.toBase58());
+    const [mintAuthority, _mintAuthBump] =
+      await anchor.web3.PublicKey.findProgramAddressSync(
+        mintAuthoritySeed,
+        program.programId
+      );
+
+    expect(creatorToken.freezeAuthority.toBase58()).eq(
+      mintAuthority.toBase58()
+    );
     expect(creatorToken.mintAuthority.toBase58()).eq(mintAuthority.toBase58());
     expect(creatorToken.decimals).eq(tokenDecimals);
     expect(creatorToken.isInitialized).eq(true);
+
+    // Check if initialSupply was supplied to creator's ATA
+    const creatorsATA = getAssociatedTokenAddressSync(
+      creatorToken.address,
+      creator.publicKey,
+      undefined,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    const creatorsATAData = await provider.connection.getTokenAccountBalance(
+      creatorsATA,
+      "confirmed"
+    );
+
+    // console.log("Checking creators ata details : ", creatorsATAData);
+    expect(creatorsATAData.value.uiAmount).eq(creatorSupplyTokenAmount);
   })
 });
