@@ -22,4 +22,8 @@ pub mod creator_token {
     pub fn create_creator_identity(ctx: Context<CreatorIdentity>, user_name : String, proof_url: String) -> Result<()> {
         creator_identity::handler(ctx,user_name,proof_url)
     }
+
+    pub fn create_creator_token(ctx: Context<CreateCreatorToken>, decimals: u8, initial_supply: u64) -> Result<()> {
+        create_creator_token::handler(ctx,decimals, initial_supply)
+    }
 }

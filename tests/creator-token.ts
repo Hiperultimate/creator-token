@@ -2,6 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { CreatorToken } from "../target/types/creator_token";
 import { assert, expect } from "chai";
+import { getMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
 describe("creator-token", () => {
   // Configure the client to use the local cluster.
@@ -93,5 +94,59 @@ describe("creator-token", () => {
     expect(identityStoredData.creatorWallet.toBase58).eq(creator.publicKey.toBase58);
     expect(identityStoredData.creatorName).eq(valid_username);
     expect(identityStoredData.proofUrl).eq(valid_url);
+  })
+  
+  it("Success creating a creators token", async () => {
+    const tokenDecimals = 6;
+    const initialSupply = new anchor.BN(1000000);
+    // Call creator token
+    const tx = await program.methods
+      .createCreatorToken(tokenDecimals, initialSupply)
+      .accounts({
+        creator: creator.publicKey,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      })
+      .signers([creator])
+      .rpc();
+
+    console.log("Checking success token creators :", tx);
+
+    // check if made token is live
+    const identityProofSeed = [
+      Buffer.from("identity"),
+      creator.publicKey.toBuffer(),
+    ];
+    const [identityProofAddress, _identityProofBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        identityProofSeed,
+        program.programId
+      );
+    // const identityProof = await program.account.identity.fetch(identityProofAddress, "confirmed");
+    const tokenSeed = [Buffer.from("owner"), identityProofAddress.toBuffer()];
+    const [tokenMintAddress, _tokenSeedBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        tokenSeed,
+        program.programId
+      );
+
+    const blockHash = await provider.connection.getLatestBlockhash();
+    await program.provider.connection.confirmTransaction(
+      {
+        blockhash: blockHash.blockhash,
+        lastValidBlockHeight: blockHash.lastValidBlockHeight,
+        signature: tx,
+      },
+      "confirmed"
+    );
+    const creatorToken = await getMint(provider.connection, tokenMintAddress, "confirmed", TOKEN_2022_PROGRAM_ID);
+    console.log("Checking TOKEN DETAILS : ", creatorToken);
+
+    const mintAuthoritySeed = [Buffer.from("mint_authority")];
+    const [mintAuthority, _mintAuthBump] = await anchor.web3.PublicKey.findProgramAddressSync(mintAuthoritySeed, program.programId);
+    
+    expect(creatorToken.freezeAuthority.toBase58()).eq(mintAuthority.toBase58());
+    expect(creatorToken.mintAuthority.toBase58()).eq(mintAuthority.toBase58());
+    expect(creatorToken.decimals).eq(tokenDecimals);
+    expect(creatorToken.isInitialized).eq(true);
   })
 });
