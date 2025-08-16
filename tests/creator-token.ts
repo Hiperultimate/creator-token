@@ -2,7 +2,14 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { CreatorToken } from "../target/types/creator_token";
 import { assert, expect } from "chai";
-import { ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync, getMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID, 
+  getAssociatedTokenAddress, 
+  getAssociatedTokenAddressSync, 
+  getMint, 
+  Mint, 
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
 
 describe("creator-token", () => {
   // Configure the client to use the local cluster.
@@ -11,6 +18,7 @@ describe("creator-token", () => {
 
   const program = anchor.workspace.creatorToken as Program<CreatorToken>;
   const creator = anchor.web3.Keypair.generate();
+  let creatorToken: Mint;
 
   // Write a before statement where you mint some tokens to creator
   before(async () => { 
@@ -141,7 +149,7 @@ describe("creator-token", () => {
       },
       "confirmed"
     );
-    const creatorToken = await getMint(
+    creatorToken = await getMint(
       provider.connection,
       tokenMintAddress,
       "confirmed",
@@ -179,5 +187,51 @@ describe("creator-token", () => {
 
     // console.log("Checking creators ata details : ", creatorsATAData);
     expect(creatorsATAData.value.uiAmount).eq(creatorSupplyTokenAmount);
+  })
+
+  it("Random fan buys some creator tokens", async () => { 
+    const fan = anchor.web3.Keypair.generate();
+    const amtOfTokens = new anchor.BN(25);
+    // airdrop fan, then confirm transaction
+    const airdropTx = await provider.connection.requestAirdrop(fan.publicKey, 10 * anchor.web3.LAMPORTS_PER_SOL);
+    let blockHash = await provider.connection.getLatestBlockhash();
+    await provider.connection.confirmTransaction({
+      blockhash: blockHash.blockhash,
+      lastValidBlockHeight: blockHash.lastValidBlockHeight,
+      signature: airdropTx,
+    });
+
+    const buyCreatorTokenTx = await program.methods
+      .buyCreatorToken(amtOfTokens)
+      .accounts({
+        buyer: fan.publicKey,
+        creator: creator.publicKey,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      })
+      .signers([fan])
+      .rpc();
+    
+    console.log("Fan successfully bought creator tokens : ", buyCreatorTokenTx);
+
+    blockHash = await provider.connection.getLatestBlockhash();
+    await provider.connection.confirmTransaction({
+      blockhash: blockHash.blockhash,
+      lastValidBlockHeight: blockHash.lastValidBlockHeight,
+      signature: buyCreatorTokenTx,
+    });
+
+    // Check how many tokens does the fan has 
+    // Derive fan ATA for token
+    const fanATA = await getAssociatedTokenAddress(
+      creatorToken.address,
+      fan.publicKey,
+      undefined,
+      TOKEN_2022_PROGRAM_ID,
+      ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    const fanATABalance = await provider.connection.getTokenAccountBalance(fanATA, "confirmed");
+
+    console.log("Fan token balance : ", fanATABalance);
   })
 });

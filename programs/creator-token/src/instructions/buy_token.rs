@@ -14,7 +14,7 @@ pub struct BuyToken<'info> {
     #[account(seeds=[b"identity", creator.key().as_ref()], bump=identity_proof.bump)]
     pub identity_proof : Account<'info, Identity>,
 
-    #[account(seeds=[b"vault", identity_proof.key().as_ref()], bump)]
+    #[account(mut, seeds=[b"vault", identity_proof.key().as_ref()], bump)]
     pub vault : SystemAccount<'info>,
 
     #[account(
@@ -24,6 +24,7 @@ pub struct BuyToken<'info> {
     pub creator_token : Account<'info, CreatorToken>,
 
     #[account(
+        mut,
         mint::authority = mint_authority,
         mint::freeze_authority = mint_authority,
         seeds = [b"owner", identity_proof.key().as_ref()],
@@ -76,8 +77,9 @@ pub fn handler(ctx: Context<BuyToken>, tokens_to_buy: u64) -> Result<()> {
         mint: ctx.accounts.mint.to_account_info(),
         to: ctx.accounts.buyer_ata.to_account_info(),
     };
-    let buyer_seeds: &[&[&[u8]]] = &[&[b"mint_authority", &[ctx.accounts.creator_token.mint_authority_bump]]];
-    let cpi_context = CpiContext::new_with_signer(program, accounts, buyer_seeds);
+    let mint_authority_seeds: &[&[&[u8]]]=  &[&[b"mint_authority", &[ctx.accounts.creator_token.mint_authority_bump]]];
+    
+    let cpi_context = CpiContext::new_with_signer(program, accounts, mint_authority_seeds);
     token_interface::mint_to(cpi_context,tokens_to_buy)
 }
 
