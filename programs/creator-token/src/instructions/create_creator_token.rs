@@ -54,7 +54,7 @@ pub struct CreateCreatorToken<'info> {
     pub associated_token_program: Program<'info, AssociatedToken>,  
 }
 
-pub fn handler(ctx: Context<CreateCreatorToken>, decimals : u8, inital_supply: u64) -> Result<()> {
+pub fn handler(ctx: Context<CreateCreatorToken>, decimals : u8, inital_supply: u64, base_price: u64, slope: u64) -> Result<()> {
     // Set initial supply
     if inital_supply > 0 {
         // mint initial_supply to creator_ata
@@ -77,8 +77,8 @@ pub fn handler(ctx: Context<CreateCreatorToken>, decimals : u8, inital_supply: u
     ctx.accounts.creator_token.creator_wallet = ctx.accounts.creator.key();
     ctx.accounts.creator_token.mint = ctx.accounts.mint.key();
     ctx.accounts.creator_token.vault = ctx.accounts.vault.key();
-    ctx.accounts.creator_token.base_price = 1111111; // TBD | Base price - The starting price per token when supply is at 0
-    ctx.accounts.creator_token.slope = 1111; // TBD | The incremental price increase per additional token minted (rate of increase).
+    ctx.accounts.creator_token.base_price = base_price; // Base price - The starting price per token when supply is at 0
+    ctx.accounts.creator_token.slope = slope; // The incremental price increase per additional token minted (rate of increase).
     ctx.accounts.creator_token.total_supply = inital_supply;
     ctx.accounts.creator_token.created_at = Clock::get()?.unix_timestamp;
     ctx.accounts.creator_token.bump = ctx.bumps.creator_token;

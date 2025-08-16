@@ -110,9 +110,16 @@ describe("creator-token", () => {
     const initialSupply = new anchor.BN(
       Math.pow(10, tokenDecimals) * creatorSupplyTokenAmount
     );
+    const basePrice = new anchor.BN(5_000_000);
+    const slope = new anchor.BN(700_000);
     // Call creator token
     const tx = await program.methods
-      .createCreatorToken(tokenDecimals, initialSupply)
+      .createCreatorToken(
+        tokenDecimals,
+        initialSupply,
+        basePrice,
+        slope
+      )
       .accounts({
         creator: creator.publicKey,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
