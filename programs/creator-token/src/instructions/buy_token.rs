@@ -52,14 +52,16 @@ pub struct BuyToken<'info> {
 
 pub fn handler(ctx: Context<BuyToken>, tokens_to_buy: u64) -> Result<()> {
     // calculate tokens to send
-    let current_supply = ctx.accounts.mint.supply;
-    let base_price = ctx.accounts.creator_token.base_price;
-    let slope = ctx.accounts.creator_token.slope;
-    let total_price = get_buying_cost(
-        tokens_to_buy,
-        current_supply,
-        base_price as u128,
-        slope as u128
+    let current_supply: u64 = ctx.accounts.mint.supply;
+    let base_price: u64 = ctx.accounts.creator_token.base_price;
+    let slope: u64 = ctx.accounts.creator_token.slope;
+    let decimals: u8 = ctx.accounts.mint.decimals;  
+    let total_price: u64 = get_buying_cost(
+        tokens_to_buy,              // base units (u64)
+        current_supply,             // base units (u64)
+        base_price,                 // lamports per whole token (u64)
+        slope,                      // lamports per whole token (u64)
+        decimals                    // decimals (u8)
     )?;
 
     // Store the received lamports to vault
@@ -83,37 +85,34 @@ pub fn handler(ctx: Context<BuyToken>, tokens_to_buy: u64) -> Result<()> {
     token_interface::mint_to(cpi_context,tokens_to_buy)
 }
 
-const PRICE_PRECISION: u128 = 1_000_000_000; // e.g., 1e9 fixed point scale
-
 fn get_buying_cost(
-    tokens_to_buy: u64,
-    current_supply: u64,
-    base_price: u128, // base price scaled by PRICE_PRECISION
-    slope: u128,      // slope scaled by PRICE_PRECISION
+    tokens_to_buy_base: u64,    // base units (e.g., 25.6123 tokens => 256123 if decimals=4)
+    current_supply_base: u64,   // base units
+    base_price_per_token: u64,  // lamports per whole token (integer)
+    slope_per_token: u64,       // lamports per whole token (integer)
+    decimals: u8,               // mint.decimals
 ) -> Result<u64> {
-    // Formula being used
-    // let total_cost = base_token_price * tokens_to_buy + slope * (current_supply * tokens_to_buy + (tokens_to_buy * tokens_to_buy) / 2);
+    // convert inputs to u128 for intermediate arithmetic safety
+    let d: u128 = 10u128.checked_pow(decimals as u32).ok_or(error!(CustomError::MathOverflow))?;
+    let d2 = d.checked_mul(d).ok_or(error!(CustomError::MathOverflow))?;
 
-    let t: u128 = tokens_to_buy as u128;
-    let s0 = current_supply as u128;
+    let t: u128 = tokens_to_buy_base as u128;
+    let s0: u128 = current_supply_base as u128;
+    let b: u128 = base_price_per_token as u128;
+    let m: u128 = slope_per_token as u128;
 
-    // Compute (s0 * t) and (t^2 / 2), safely
-    let s0_t = s0.checked_mul(t).ok_or(error!(CustomError::MathOverflow))?;
+    // numerator = b * t * D  +  m * s0 * t  +  m * (t^2 / 2)
+    // (see derivation in discussion: cost = [b*t*D + m*(s0*t + t^2/2)] / D^2)
+    let term1 = b.checked_mul(t).and_then(|x| x.checked_mul(d)).ok_or(error!(CustomError::MathOverflow))?;
+    let term2 = m.checked_mul(s0).and_then(|x| x.checked_mul(t)).ok_or(error!(CustomError::MathOverflow))?;
     let t2_half = t.checked_mul(t).ok_or(error!(CustomError::MathOverflow))?
                     .checked_div(2).ok_or(error!(CustomError::MathOverflow))?;
+    let term3 = m.checked_mul(t2_half).ok_or(error!(CustomError::MathOverflow))?;
 
-    // total_term = s0*t + t^2/2
-    let total_term = s0_t.checked_add(t2_half).ok_or(error!(CustomError::MathOverflow))?;
+    let numer = term1.checked_add(term2).and_then(|x| x.checked_add(term3)).ok_or(error!(CustomError::MathOverflow))?;
+    let cost = numer.checked_div(d2).ok_or(error!(CustomError::MathOverflow))?;
 
-    // cost_fp = base_price * t + slope * total_term
-    let part1 = base_price.checked_mul(t).ok_or(error!(CustomError::MathOverflow))?;
-    let part2 = slope.checked_mul(total_term).ok_or(error!(CustomError::MathOverflow))?;
-    let total_fp = part1.checked_add(part2).ok_or(error!(CustomError::MathOverflow))?;
-
-    // Convert from fixed-point to actual units (u64)
-    let cost = total_fp.checked_div(PRICE_PRECISION).ok_or(error!(CustomError::MathOverflow))?;
-    let cost_u64 = cost.try_into().map_err(|_| error!(CustomError::MathOverflow))?;
-
+    // downcast to u64 (fail if overflow)
+    let cost_u64: u64 = cost.try_into().map_err(|_| error!(CustomError::MathOverflow))?;
     Ok(cost_u64)
 }
-

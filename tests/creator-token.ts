@@ -162,7 +162,6 @@ describe("creator-token", () => {
       "confirmed",
       TOKEN_2022_PROGRAM_ID
     );
-    // console.log("Checking TOKEN DETAILS : ", creatorToken);
 
     const mintAuthoritySeed = [Buffer.from("mint_authority")];
     const [mintAuthority, _mintAuthBump] =
@@ -198,7 +197,10 @@ describe("creator-token", () => {
 
   it("Random fan buys some creator tokens", async () => { 
     const fan = anchor.web3.Keypair.generate();
-    const amtOfTokens = new anchor.BN(25);
+    const amtOfTokens = 25;
+    const tokenToBuy = new anchor.BN(amtOfTokens).mul(
+      new anchor.BN(10).pow(new anchor.BN(creatorToken.decimals))
+    ); // amtOfTokens * (10 ** tokenDecimals) = 25 * 10^6 
     // airdrop fan, then confirm transaction
     const airdropTx = await provider.connection.requestAirdrop(fan.publicKey, 10 * anchor.web3.LAMPORTS_PER_SOL);
     let blockHash = await provider.connection.getLatestBlockhash();
@@ -209,7 +211,7 @@ describe("creator-token", () => {
     });
 
     const buyCreatorTokenTx = await program.methods
-      .buyCreatorToken(amtOfTokens)
+      .buyCreatorToken(tokenToBuy)
       .accounts({
         buyer: fan.publicKey,
         creator: creator.publicKey,
