@@ -191,7 +191,6 @@ describe("creator-token", () => {
       "confirmed"
     );
 
-    // console.log("Checking creators ata details : ", creatorsATAData);
     expect(creatorsATAData.value.uiAmount).eq(creatorSupplyTokenAmount);
   })
 
@@ -201,6 +200,7 @@ describe("creator-token", () => {
     const tokenToBuy = new anchor.BN(amtOfTokens).mul(
       new anchor.BN(10).pow(new anchor.BN(creatorToken.decimals))
     ); // amtOfTokens * (10 ** tokenDecimals) = 25 * 10^6 
+
     // airdrop fan, then confirm transaction
     const airdropTx = await provider.connection.requestAirdrop(fan.publicKey, 10 * anchor.web3.LAMPORTS_PER_SOL);
     let blockHash = await provider.connection.getLatestBlockhash();
@@ -241,6 +241,8 @@ describe("creator-token", () => {
 
     const fanATABalance = await provider.connection.getTokenAccountBalance(fanATA, "confirmed");
 
-    console.log("Fan token balance : ", fanATABalance);
+    expect(fanATABalance.value.uiAmount).eq(amtOfTokens);
+    expect(fanATABalance.value.decimals).eq(creatorToken.decimals);
+    expect(fanATABalance.value.amount).eq(tokenToBuy.toString());
   })
 });
