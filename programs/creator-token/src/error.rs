@@ -15,3 +15,9 @@ pub enum IdentityError {
     #[msg("The length of the url entered exeeds 200 characters")]
     UrlTooLong,
 }
+
+#[error_code]
+pub enum CustomError {
+    #[msg("Overflow occured while calculating")]
+    MathOverflow,
+}

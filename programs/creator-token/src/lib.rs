@@ -13,6 +13,7 @@ declare_id!("EEiGYjpth5GS6fNvX2a2ZbQV7gCNAZjMRE3XMtBrFbfq");
 
 #[program]
 pub mod creator_token {
+
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
@@ -23,7 +24,12 @@ pub mod creator_token {
         creator_identity::handler(ctx,user_name,proof_url)
     }
 
+    // NOTE : We may have to remove initial supply to keep the token vault and token supply healthy
     pub fn create_creator_token(ctx: Context<CreateCreatorToken>, decimals: u8, initial_supply: u64) -> Result<()> {
         create_creator_token::handler(ctx,decimals, initial_supply)
+    }
+
+    pub fn buy_creator_token(ctx: Context<BuyToken>, tokens_to_buy: u64 ) -> Result<()> {
+        buy_token::handler(ctx, tokens_to_buy)
     }
 }
