@@ -282,7 +282,7 @@ describe("creator-token", () => {
       );
 
     const lamportsNeeded = await program.methods
-      .getTokenPrice(tokenToBuy)
+      .getSellingReturnPrice(tokenToBuy)
       .accounts({
         creator: creator.publicKey,
       })
@@ -297,18 +297,72 @@ describe("creator-token", () => {
 
     // console.log("CHECKING VAULT BALANCE :", vaultBalance);
 
-    // This is a bad test, we can improve this to be more accurate. Currently the delta is almost 1 SOL
-    expect(vaultBalance).closeTo(lamportsNeededBN.toNumber(), 993750000);
+    expect(vaultBalance).eq(lamportsNeededBN.toNumber());
   });
 
-  // it("Fan sells their creator tokens", async () => {
-  //   const tokenToSell = new anchor.BN(25);
-  //   const sellTx = await program.methods
-  //     .sellCreatorToken(tokenToSell)
-  //     .accounts({ seller: fan.publicKey, tokenProgram: TOKEN_2022_PROGRAM_ID })
-  //     .signers([fan])
-  //     .rpc();
+  it("Fan sells their creator tokens", async () => {
+    const amtOftokenToSell = new anchor.BN(25);
+    const tokenToSell = new anchor.BN(amtOftokenToSell).mul(
+      new anchor.BN(10).pow(new anchor.BN(creatorToken.decimals))
+    ); // amtOfTokens * (10 ** tokenDecimals) = 25 * 10^6
 
-  //   console.log("Fan successfully sold tokens : ", sellTx);
-  // });
+    const fanBalanceBefore = await provider.connection.getBalance(
+      fan.publicKey,
+      "confirmed"
+    );
+    
+
+    // Check vault lamports should be > 0 
+    const identityProofSeed = [
+      Buffer.from("identity"),
+      creator.publicKey.toBuffer(),
+    ];
+    const [identityProofAddress, _identityProofBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        identityProofSeed,
+        program.programId
+      );
+    const vaultSeeds = [Buffer.from("vault"), identityProofAddress.toBuffer()];
+    const [vaultAddress, _vaultBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        vaultSeeds,
+        program.programId
+      );
+    const oldVaultBalance = await provider.connection.getBalance(
+      vaultAddress,
+      "confirmed"
+    );
+    // console.log("Checking vault balance before : ", oldVaultBalance);
+    expect(oldVaultBalance).greaterThan(0);
+
+    const sellTx = await program.methods
+      .sellCreatorToken(tokenToSell)
+      .accounts({
+        seller: fan.publicKey,
+        creator: creator.publicKey,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      })
+      .signers([fan])
+      .rpc();
+    
+    console.log("Fan successfully sold tokens : ", sellTx);
+    
+    const latestBlock = await provider.connection.getLatestBlockhash();
+    await provider.connection.confirmTransaction({
+      blockhash: latestBlock.blockhash,
+      lastValidBlockHeight: latestBlock.lastValidBlockHeight,
+      signature: sellTx,
+    });
+
+    // Check vault lamports should be 0
+    const newVaultBalance = await provider.connection.getBalance(vaultAddress, "confirmed");
+    // console.log("Checking vault after : ", newVaultBalance);
+    expect(newVaultBalance).eq(0);
+
+    // Check user lamports should be +
+    const fanBalanceAfter = await provider.connection.getBalance(fan.publicKey, "confirmed");
+    // console.log("Checking fan balance :", fanBalanceBefore, fanBalanceAfter);
+    expect(fanBalanceAfter - fanBalanceBefore).eq(oldVaultBalance);
+
+  });
 });
