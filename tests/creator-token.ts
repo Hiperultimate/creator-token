@@ -3,12 +3,12 @@ import { Program } from "@coral-xyz/anchor";
 import { CreatorToken } from "../target/types/creator_token";
 import { assert, expect } from "chai";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID, 
-  getAssociatedTokenAddress, 
-  getAssociatedTokenAddressSync, 
-  getMint, 
-  Mint, 
-  TOKEN_2022_PROGRAM_ID
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
+  getAssociatedTokenAddressSync,
+  getMint,
+  Mint,
+  TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 
 describe("creator-token", () => {
@@ -18,14 +18,19 @@ describe("creator-token", () => {
 
   const program = anchor.workspace.creatorToken as Program<CreatorToken>;
   const creator = anchor.web3.Keypair.generate();
+  const fan = anchor.web3.Keypair.generate();
+
   let creatorToken: Mint;
 
   // Write a before statement where you mint some tokens to creator
-  before(async () => { 
+  before(async () => {
     // mint SOL to creator
-    const airdropTx = await provider.connection.requestAirdrop(creator.publicKey, 5 * anchor.web3.LAMPORTS_PER_SOL);
+    const airdropTx = await provider.connection.requestAirdrop(
+      creator.publicKey,
+      5 * anchor.web3.LAMPORTS_PER_SOL
+    );
     console.log("Airdropped SOL successfully :", airdropTx);
-  })
+  });
 
   it("Is initialized!", async () => {
     // Add your test here.
@@ -33,7 +38,7 @@ describe("creator-token", () => {
     console.log("Your transaction signature", tx);
   });
 
-  it("Fails in creating creator identity with incorrect length user_name and proof_url", async () => { 
+  it("Fails in creating creator identity with incorrect length user_name and proof_url", async () => {
     const valid_username = "Jonathan Joestar";
     const valid_url = "https://proof_url.com/";
     const invalid_username = valid_username.repeat(10);
@@ -43,17 +48,19 @@ describe("creator-token", () => {
     try {
       const tx = await program.methods
         .createCreatorIdentity(invalid_username, valid_url)
-        .accounts({creator : creator.publicKey})
+        .accounts({ creator: creator.publicKey })
         .signers([creator])
         .rpc();
-      
-      assert.fail(`Expected transaction to fail but it succeeded instead :${tx}`);
+
+      assert.fail(
+        `Expected transaction to fail but it succeeded instead :${tx}`
+      );
     } catch (err) {
-      if(err.name === "AssertionError"){
-        throw err
+      if (err.name === "AssertionError") {
+        throw err;
       }
       const anchorErrCode = err.error.errorCode.code;
-      expect(anchorErrCode).eq('NameTooLong');
+      expect(anchorErrCode).eq("NameTooLong");
     }
 
     // Valid username, invalid URL
@@ -64,25 +71,27 @@ describe("creator-token", () => {
         .signers([creator])
         .rpc();
 
-      assert.fail(`Expected transaction to fail but it succeeded instead :${tx}`);
+      assert.fail(
+        `Expected transaction to fail but it succeeded instead :${tx}`
+      );
     } catch (err) {
-      if(err.name === "AssertionError"){
-        throw err
+      if (err.name === "AssertionError") {
+        throw err;
       }
       const anchorErrCode = err.error.errorCode.code;
       expect(anchorErrCode).eq("UrlTooLong");
     }
-  })
+  });
 
-  // Write success test for creator identity 
-  it("Success creating creator identity profile", async () => { 
+  // Write success test for creator identity
+  it("Success creating creator identity profile", async () => {
     const valid_username = "Jonathan Joestar";
     const valid_url = "https://proof_url.com/";
     const tx = await program.methods
-        .createCreatorIdentity(valid_username, valid_url)
-        .accounts({ creator: creator.publicKey })
-        .signers([creator])
-        .rpc();
+      .createCreatorIdentity(valid_username, valid_url)
+      .accounts({ creator: creator.publicKey })
+      .signers([creator])
+      .rpc();
     console.log("Successfully created creator identity profile :", tx);
 
     const latestBlock = await provider.connection.getLatestBlockhash();
@@ -95,15 +104,24 @@ describe("creator-token", () => {
       "confirmed"
     );
 
-    const identitySeed = [Buffer.from("identity"), creator.publicKey.toBuffer()];
-    const [identityAddress, _] = anchor.web3.PublicKey.findProgramAddressSync(identitySeed,program.programId);
+    const identitySeed = [
+      Buffer.from("identity"),
+      creator.publicKey.toBuffer(),
+    ];
+    const [identityAddress, _] = anchor.web3.PublicKey.findProgramAddressSync(
+      identitySeed,
+      program.programId
+    );
 
-    const identityStoredData = await program.account.identity.fetch(identityAddress, "confirmed");
-    expect(identityStoredData.creatorWallet.toBase58).eq(creator.publicKey.toBase58);
+    const identityStoredData = await program.account.identity.fetch(
+      identityAddress,
+      "confirmed"
+    );
+    expect(identityStoredData.creator.toBase58).eq(creator.publicKey.toBase58);
     expect(identityStoredData.creatorName).eq(valid_username);
     expect(identityStoredData.proofUrl).eq(valid_url);
-  })
-  
+  });
+
   it("Success creating a creators token", async () => {
     const creatorSupplyTokenAmount = 100;
     const tokenDecimals = 6;
@@ -114,12 +132,7 @@ describe("creator-token", () => {
     const slope = new anchor.BN(700_000);
     // Call creator token
     const tx = await program.methods
-      .createCreatorToken(
-        tokenDecimals,
-        initialSupply,
-        basePrice,
-        slope
-      )
+      .createCreatorToken(tokenDecimals, initialSupply, basePrice, slope)
       .accounts({
         creator: creator.publicKey,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
@@ -192,17 +205,19 @@ describe("creator-token", () => {
     );
 
     expect(creatorsATAData.value.uiAmount).eq(creatorSupplyTokenAmount);
-  })
+  });
 
-  it("Random fan buys some creator tokens", async () => { 
-    const fan = anchor.web3.Keypair.generate();
+  it("Fan buys some creator tokens", async () => {
     const amtOfTokens = 25;
     const tokenToBuy = new anchor.BN(amtOfTokens).mul(
       new anchor.BN(10).pow(new anchor.BN(creatorToken.decimals))
-    ); // amtOfTokens * (10 ** tokenDecimals) = 25 * 10^6 
+    ); // amtOfTokens * (10 ** tokenDecimals) = 25 * 10^6
 
     // airdrop fan, then confirm transaction
-    const airdropTx = await provider.connection.requestAirdrop(fan.publicKey, 10 * anchor.web3.LAMPORTS_PER_SOL);
+    const airdropTx = await provider.connection.requestAirdrop(
+      fan.publicKey,
+      10 * anchor.web3.LAMPORTS_PER_SOL
+    );
     let blockHash = await provider.connection.getLatestBlockhash();
     await provider.connection.confirmTransaction({
       blockhash: blockHash.blockhash,
@@ -219,7 +234,7 @@ describe("creator-token", () => {
       })
       .signers([fan])
       .rpc();
-    
+
     console.log("Fan successfully bought creator tokens : ", buyCreatorTokenTx);
 
     blockHash = await provider.connection.getLatestBlockhash();
@@ -229,7 +244,7 @@ describe("creator-token", () => {
       signature: buyCreatorTokenTx,
     });
 
-    // Check how many tokens does the fan has 
+    // Check how many tokens does the fan has
     // Derive fan ATA for token
     const fanATA = await getAssociatedTokenAddress(
       creatorToken.address,
@@ -239,10 +254,61 @@ describe("creator-token", () => {
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
-    const fanATABalance = await provider.connection.getTokenAccountBalance(fanATA, "confirmed");
+    const fanATABalance = await provider.connection.getTokenAccountBalance(
+      fanATA,
+      "confirmed"
+    );
 
     expect(fanATABalance.value.uiAmount).eq(amtOfTokens);
     expect(fanATABalance.value.decimals).eq(creatorToken.decimals);
     expect(fanATABalance.value.amount).eq(tokenToBuy.toString());
-  })
+
+    // ADD VAULT BALANCE CHECK
+    // CHECK MONEY SPENT ON THE INSTRUCTION CHAIN
+    const identityProofSeed = [
+      Buffer.from("identity"),
+      creator.publicKey.toBuffer(),
+    ];
+    const [identityProofAddress, _identityProofBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        identityProofSeed,
+        program.programId
+      );
+    const vaultSeeds = [Buffer.from("vault"), identityProofAddress.toBuffer()];
+    const [vaultAddress, _vaultBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        vaultSeeds,
+        program.programId
+      );
+
+    const lamportsNeeded = await program.methods
+      .getTokenPrice(tokenToBuy)
+      .accounts({
+        creator: creator.publicKey,
+      })
+      .view();
+    // console.log("CHECKING lamports needed ", new anchor.BN(lamportsNeeded).toString());
+    const lamportsNeededBN = new anchor.BN(lamportsNeeded);
+
+    const vaultBalance = await provider.connection.getBalance(
+      vaultAddress,
+      "confirmed"
+    );
+
+    // console.log("CHECKING VAULT BALANCE :", vaultBalance);
+
+    // This is a bad test, we can improve this to be more accurate. Currently the delta is almost 1 SOL
+    expect(vaultBalance).closeTo(lamportsNeededBN.toNumber(), 993750000);
+  });
+
+  // it("Fan sells their creator tokens", async () => {
+  //   const tokenToSell = new anchor.BN(25);
+  //   const sellTx = await program.methods
+  //     .sellCreatorToken(tokenToSell)
+  //     .accounts({ seller: fan.publicKey, tokenProgram: TOKEN_2022_PROGRAM_ID })
+  //     .signers([fan])
+  //     .rpc();
+
+  //   console.log("Fan successfully sold tokens : ", sellTx);
+  // });
 });

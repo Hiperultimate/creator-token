@@ -74,7 +74,7 @@ pub fn handler(ctx: Context<CreateCreatorToken>, decimals : u8, inital_supply: u
 
     // May be changed in the future
     // Set creator_token data in PDA
-    ctx.accounts.creator_token.creator_wallet = ctx.accounts.creator.key();
+    ctx.accounts.creator_token.creator = ctx.accounts.creator.key();
     ctx.accounts.creator_token.mint = ctx.accounts.mint.key();
     ctx.accounts.creator_token.vault = ctx.accounts.vault.key();
     ctx.accounts.creator_token.base_price = base_price; // Base price - The starting price per token when supply is at 0
@@ -83,6 +83,8 @@ pub fn handler(ctx: Context<CreateCreatorToken>, decimals : u8, inital_supply: u
     ctx.accounts.creator_token.created_at = Clock::get()?.unix_timestamp;
     ctx.accounts.creator_token.bump = ctx.bumps.creator_token;
     ctx.accounts.creator_token.mint_authority_bump = ctx.bumps.mint_authority;
+    ctx.accounts.creator_token.vault_bump = ctx.bumps.vault;
+    ctx.accounts.creator_token.mint_bump = ctx.bumps.mint;
 
     Ok(())
 }

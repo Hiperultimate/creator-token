@@ -33,4 +33,12 @@ pub mod creator_token {
     pub fn buy_creator_token(ctx: Context<BuyToken>, tokens_to_buy: u64 ) -> Result<()> {
         buy_token::handler(ctx, tokens_to_buy)
     }
+
+    pub fn get_token_price(ctx: Context<TokenPrice>, tokens_to_buy: u64) -> Result<u64> {
+        token_price::handler(ctx, tokens_to_buy)
+    }
+
+    pub fn sell_creator_token(ctx: Context<SellToken>, token_to_sell: u64 ) -> Result<()> {
+        sell_token::handler(ctx, token_to_sell)
+    }
 }

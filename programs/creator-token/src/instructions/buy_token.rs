@@ -21,7 +21,7 @@ pub struct BuyToken<'info> {
     #[account(seeds=[b"identity", creator.key().as_ref()], bump=identity_proof.bump)]
     pub identity_proof : Account<'info, Identity>,
 
-    #[account(mut, seeds=[b"vault", identity_proof.key().as_ref()], bump)]
+    #[account(mut, seeds=[b"vault", identity_proof.key().as_ref()], bump=creator_token.vault_bump)]
     pub vault : SystemAccount<'info>,
 
     #[account(
@@ -35,7 +35,7 @@ pub struct BuyToken<'info> {
         mint::authority = mint_authority,
         mint::freeze_authority = mint_authority,
         seeds = [b"owner", identity_proof.key().as_ref()],
-        bump
+        bump=creator_token.mint_bump
     )]
     pub mint: InterfaceAccount<'info, Mint>,
 
