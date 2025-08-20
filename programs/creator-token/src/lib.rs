@@ -26,8 +26,17 @@ pub mod creator_token {
     }
 
     // NOTE : We may have to remove initial supply to keep the token vault and token supply healthy
-    pub fn create_creator_token(ctx: Context<CreateCreatorToken>, decimals: u8, initial_supply: u64, base_price: u64, slope: u64) -> Result<()> {
-        create_creator_token::handler(ctx,decimals, initial_supply, base_price, slope)
+    pub fn create_creator_token(ctx: Context<CreateCreatorToken>, 
+        decimals: u8, 
+        // initial_supply: u64, 
+        base_price: u64, 
+        slope: u64) -> Result<()> {
+        create_creator_token::handler(
+            ctx,
+            decimals, 
+            // initial_supply, 
+            base_price, 
+            slope)
     }
 
     pub fn buy_creator_token(ctx: Context<BuyToken>, tokens_to_buy: u64 ) -> Result<()> {

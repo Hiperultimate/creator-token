@@ -54,23 +54,28 @@ pub struct CreateCreatorToken<'info> {
     pub associated_token_program: Program<'info, AssociatedToken>,  
 }
 
-pub fn handler(ctx: Context<CreateCreatorToken>, decimals : u8, inital_supply: u64, base_price: u64, slope: u64) -> Result<()> {
+pub fn handler(
+    ctx: Context<CreateCreatorToken>, 
+    decimals : u8, 
+    // inital_supply: u64, 
+    base_price: u64, 
+    slope: u64) -> Result<()> {
     // Set initial supply
-    if inital_supply > 0 {
-        // mint initial_supply to creator_ata
+    // if inital_supply > 0 {
+    //     // mint initial_supply to creator_ata
 
-        let cpi_accounts = MintTo {
-            authority: ctx.accounts.mint_authority.to_account_info(),
-            mint: ctx.accounts.mint.to_account_info(),
-            to: ctx.accounts.creator_ata.to_account_info(),
-        };
+    //     let cpi_accounts = MintTo {
+    //         authority: ctx.accounts.mint_authority.to_account_info(),
+    //         mint: ctx.accounts.mint.to_account_info(),
+    //         to: ctx.accounts.creator_ata.to_account_info(),
+    //     };
 
-        let cpi_program = ctx.accounts.token_program.to_account_info();
-        let mint_authority_seeds: &[&[&[u8]]]=  &[&[b"mint_authority", &[ctx.bumps.mint_authority]]];
+    //     let cpi_program = ctx.accounts.token_program.to_account_info();
+    //     let mint_authority_seeds: &[&[&[u8]]]=  &[&[b"mint_authority", &[ctx.bumps.mint_authority]]];
 
-        let cpi_context = CpiContext::new_with_signer(cpi_program, cpi_accounts, mint_authority_seeds);
-        token_interface::mint_to(cpi_context, inital_supply)?;
-    }
+    //     let cpi_context = CpiContext::new_with_signer(cpi_program, cpi_accounts, mint_authority_seeds);
+    //     token_interface::mint_to(cpi_context, inital_supply)?;
+    // }
 
     // May be changed in the future
     // Set creator_token data in PDA
@@ -79,7 +84,7 @@ pub fn handler(ctx: Context<CreateCreatorToken>, decimals : u8, inital_supply: u
     ctx.accounts.creator_token.vault = ctx.accounts.vault.key();
     ctx.accounts.creator_token.base_price = base_price; // Base price - The starting price per token when supply is at 0
     ctx.accounts.creator_token.slope = slope; // The incremental price increase per additional token minted (rate of increase).
-    ctx.accounts.creator_token.total_supply = inital_supply;
+    // ctx.accounts.creator_token.total_supply = inital_supply;
     ctx.accounts.creator_token.created_at = Clock::get()?.unix_timestamp;
     ctx.accounts.creator_token.bump = ctx.bumps.creator_token;
     ctx.accounts.creator_token.mint_authority_bump = ctx.bumps.mint_authority;

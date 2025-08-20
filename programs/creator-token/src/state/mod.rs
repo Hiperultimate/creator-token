@@ -23,7 +23,7 @@ pub struct CreatorToken {
     pub vault: Pubkey,
     pub base_price: u64,
     pub slope: u64,
-    pub total_supply: u64,
+    // pub total_supply: u64,
     pub created_at: i64,
     pub bump: u8,
     pub mint_authority_bump: u8,

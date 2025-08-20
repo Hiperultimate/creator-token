@@ -122,17 +122,18 @@ describe("creator-token", () => {
     expect(identityStoredData.proofUrl).eq(valid_url);
   });
 
-  it("Success creating a creators token", async () => {
-    const creatorSupplyTokenAmount = 100;
+  it("Success creating a creators token and then creator buys some token", async () => {
+    // const creatorSupplyTokenAmount = 100;
     const tokenDecimals = 6;
-    const initialSupply = new anchor.BN(
-      Math.pow(10, tokenDecimals) * creatorSupplyTokenAmount
-    );
+    // const initialSupply = new anchor.BN(
+    //   Math.pow(10, tokenDecimals) * creatorSupplyTokenAmount
+    // );
     const basePrice = new anchor.BN(5_000_000);
     const slope = new anchor.BN(700_000);
     // Call creator token
     const tx = await program.methods
-      .createCreatorToken(tokenDecimals, initialSupply, basePrice, slope)
+      // .createCreatorToken(tokenDecimals, initialSupply, basePrice, slope)
+      .createCreatorToken(tokenDecimals, basePrice, slope)
       .accounts({
         creator: creator.publicKey,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
@@ -160,7 +161,7 @@ describe("creator-token", () => {
         program.programId
       );
 
-    const blockHash = await provider.connection.getLatestBlockhash();
+    let blockHash = await provider.connection.getLatestBlockhash();
     await program.provider.connection.confirmTransaction(
       {
         blockhash: blockHash.blockhash,
@@ -191,7 +192,48 @@ describe("creator-token", () => {
     expect(creatorToken.isInitialized).eq(true);
 
     // Check if initialSupply was supplied to creator's ATA
-    const creatorsATA = getAssociatedTokenAddressSync(
+    // const creatorsATA = getAssociatedTokenAddressSync(
+    //   creatorToken.address,
+    //   creator.publicKey,
+    //   undefined,
+    //   TOKEN_2022_PROGRAM_ID,
+    //   ASSOCIATED_TOKEN_PROGRAM_ID
+    // );
+
+    // const creatorsATAData = await provider.connection.getTokenAccountBalance(
+    //   creatorsATA,
+    //   "confirmed"
+    // );
+
+    // expect(creatorsATAData.value.uiAmount).eq(creatorSupplyTokenAmount);
+
+    // Make creator buy some of their newly made token in exchange for some SOL
+
+    const amtOfTokens = 50;
+    const tokenToBuy = new anchor.BN(amtOfTokens).mul(
+      new anchor.BN(10).pow(new anchor.BN(creatorToken.decimals))
+    );
+
+    const buyCreatorTokenTx = await program.methods
+      .buyCreatorToken(tokenToBuy)
+      .accounts({
+        buyer: creator.publicKey,
+        creator: creator.publicKey,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      })
+      .signers([creator])
+      .rpc();
+
+    console.log("Fan successfully bought creator tokens : ", buyCreatorTokenTx);
+
+    blockHash = await provider.connection.getLatestBlockhash();
+    await provider.connection.confirmTransaction({
+      blockhash: blockHash.blockhash,
+      lastValidBlockHeight: blockHash.lastValidBlockHeight,
+      signature: buyCreatorTokenTx,
+    });
+
+    const creatorATA = await getAssociatedTokenAddress(
       creatorToken.address,
       creator.publicKey,
       undefined,
@@ -199,15 +241,17 @@ describe("creator-token", () => {
       ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
-    const creatorsATAData = await provider.connection.getTokenAccountBalance(
-      creatorsATA,
+    const createrATABalance = await provider.connection.getTokenAccountBalance(
+      creatorATA,
       "confirmed"
     );
 
-    expect(creatorsATAData.value.uiAmount).eq(creatorSupplyTokenAmount);
+    expect(createrATABalance.value.uiAmount).eq(amtOfTokens);
+    expect(createrATABalance.value.decimals).eq(creatorToken.decimals);
+    expect(createrATABalance.value.amount).eq(tokenToBuy.toString());
   });
 
-  it("Fan buys some creator tokens", async () => {
+  it("Success fan buys some creator tokens", async () => {
     const amtOfTokens = 25;
     const tokenToBuy = new anchor.BN(amtOfTokens).mul(
       new anchor.BN(10).pow(new anchor.BN(creatorToken.decimals))
@@ -224,6 +268,28 @@ describe("creator-token", () => {
       lastValidBlockHeight: blockHash.lastValidBlockHeight,
       signature: airdropTx,
     });
+
+    const identityProofSeed = [
+      Buffer.from("identity"),
+      creator.publicKey.toBuffer(),
+    ];
+    const [identityProofAddress, _identityProofBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        identityProofSeed,
+        program.programId
+      );
+
+    const vaultSeeds = [Buffer.from("vault"), identityProofAddress.toBuffer()];
+    const [vaultAddress, _vaultBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        vaultSeeds,
+        program.programId
+      );
+
+    const initialVaultBalance = await provider.connection.getBalance(
+      vaultAddress,
+      "confirmed"
+    );
 
     const buyCreatorTokenTx = await program.methods
       .buyCreatorToken(tokenToBuy)
@@ -263,24 +329,6 @@ describe("creator-token", () => {
     expect(fanATABalance.value.decimals).eq(creatorToken.decimals);
     expect(fanATABalance.value.amount).eq(tokenToBuy.toString());
 
-    // ADD VAULT BALANCE CHECK
-    // CHECK MONEY SPENT ON THE INSTRUCTION CHAIN
-    const identityProofSeed = [
-      Buffer.from("identity"),
-      creator.publicKey.toBuffer(),
-    ];
-    const [identityProofAddress, _identityProofBump] =
-      anchor.web3.PublicKey.findProgramAddressSync(
-        identityProofSeed,
-        program.programId
-      );
-    const vaultSeeds = [Buffer.from("vault"), identityProofAddress.toBuffer()];
-    const [vaultAddress, _vaultBump] =
-      anchor.web3.PublicKey.findProgramAddressSync(
-        vaultSeeds,
-        program.programId
-      );
-
     const lamportsNeeded = await program.methods
       .getSellingReturnPrice(tokenToBuy)
       .accounts({
@@ -290,14 +338,14 @@ describe("creator-token", () => {
     // console.log("CHECKING lamports needed ", new anchor.BN(lamportsNeeded).toString());
     const lamportsNeededBN = new anchor.BN(lamportsNeeded);
 
-    const vaultBalance = await provider.connection.getBalance(
+    const laterVaultBalance = await provider.connection.getBalance(
       vaultAddress,
       "confirmed"
     );
 
-    // console.log("CHECKING VAULT BALANCE :", vaultBalance);
+    // console.log("CHECKING VAULT BALANCE :", laterVaultBalance);
 
-    expect(vaultBalance).eq(lamportsNeededBN.toNumber());
+    expect(laterVaultBalance-initialVaultBalance).eq(lamportsNeededBN.toNumber());
   });
 
   it("Fan sells their creator tokens", async () => {
@@ -311,7 +359,6 @@ describe("creator-token", () => {
       "confirmed"
     );
     
-
     // Check vault lamports should be > 0 
     const identityProofSeed = [
       Buffer.from("identity"),
@@ -328,12 +375,12 @@ describe("creator-token", () => {
         vaultSeeds,
         program.programId
       );
-    const oldVaultBalance = await provider.connection.getBalance(
+    const vaultBalanceBefore = await provider.connection.getBalance(
       vaultAddress,
       "confirmed"
     );
-    // console.log("Checking vault balance before : ", oldVaultBalance);
-    expect(oldVaultBalance).greaterThan(0);
+    // console.log("Checking vault balance before : ", vaultBalanceBefore);
+    expect(vaultBalanceBefore).greaterThan(0);
 
     const sellTx = await program.methods
       .sellCreatorToken(tokenToSell)
@@ -354,15 +401,30 @@ describe("creator-token", () => {
       signature: sellTx,
     });
 
-    // Check vault lamports should be 0
-    const newVaultBalance = await provider.connection.getBalance(vaultAddress, "confirmed");
-    // console.log("Checking vault after : ", newVaultBalance);
-    expect(newVaultBalance).eq(0);
+    const vaultBalanceAfter = await provider.connection.getBalance(vaultAddress, "confirmed");
 
     // Check user lamports should be +
     const fanBalanceAfter = await provider.connection.getBalance(fan.publicKey, "confirmed");
     // console.log("Checking fan balance :", fanBalanceBefore, fanBalanceAfter);
-    expect(fanBalanceAfter - fanBalanceBefore).eq(oldVaultBalance);
+    expect(fanBalanceAfter - fanBalanceBefore).eq(vaultBalanceBefore- vaultBalanceAfter);
 
   });
+
+  it("Fan makes a profit by buying early and selling later", async () => {
+    // Create fan 1 
+    // Create fan 2
+
+    // Mint SOL to fan1 
+    // Mint SOL to fan2
+
+    // fan1 buys 50 creator token
+    // fan2 buys 50 creator token next
+
+    // fan1 sells creator token
+    // fan2 sells creator token
+
+    // compare fan1 initial SOL count with after selling creator token, pass if higher than before
+
+    // check if vault has 0 SOL
+  } )
 });
