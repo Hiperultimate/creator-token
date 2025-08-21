@@ -20,7 +20,10 @@ describe("creator-token", () => {
   const creator = anchor.web3.Keypair.generate();
   const fan = anchor.web3.Keypair.generate();
 
+  // Token details
   let creatorToken: Mint;
+  let identityAddress : anchor.web3.PublicKey;
+  let vaultAddress : anchor.web3.PublicKey;
 
   // Write a before statement where you mint some tokens to creator
   before(async () => {
@@ -94,24 +97,27 @@ describe("creator-token", () => {
       .rpc();
     console.log("Successfully created creator identity profile :", tx);
 
-    const latestBlock = await provider.connection.getLatestBlockhash();
-    await program.provider.connection.confirmTransaction(
-      {
-        blockhash: latestBlock.blockhash,
-        lastValidBlockHeight: latestBlock.lastValidBlockHeight,
-        signature: tx,
-      },
-      "confirmed"
-    );
+    await checkConfirmTransaction(provider, tx);
 
     const identitySeed = [
       Buffer.from("identity"),
       creator.publicKey.toBuffer(),
     ];
-    const [identityAddress, _] = anchor.web3.PublicKey.findProgramAddressSync(
+    const [getIdentityAddress, _] = anchor.web3.PublicKey.findProgramAddressSync(
       identitySeed,
       program.programId
     );
+
+    identityAddress = getIdentityAddress;
+
+    const vaultSeeds = [Buffer.from("vault"), identityAddress.toBuffer()];
+    const [getVaultAddress, _vaultBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        vaultSeeds,
+        program.programId
+    );
+
+    vaultAddress = getVaultAddress;
 
     const identityStoredData = await program.account.identity.fetch(
       identityAddress,
@@ -122,7 +128,7 @@ describe("creator-token", () => {
     expect(identityStoredData.proofUrl).eq(valid_url);
   });
 
-  it("Success creating a creators token and then creator buys some token", async () => {
+  it("Success creating a creators token and then creator buys their own token", async () => {
     // const creatorSupplyTokenAmount = 100;
     const tokenDecimals = 6;
     // const initialSupply = new anchor.BN(
@@ -144,32 +150,15 @@ describe("creator-token", () => {
     console.log("Checking success token creators :", tx);
 
     // New SPL Token checks
-    const identityProofSeed = [
-      Buffer.from("identity"),
-      creator.publicKey.toBuffer(),
-    ];
-    const [identityProofAddress, _identityProofBump] =
-      anchor.web3.PublicKey.findProgramAddressSync(
-        identityProofSeed,
-        program.programId
-      );
-    // const identityProof = await program.account.identity.fetch(identityProofAddress, "confirmed");
-    const tokenSeed = [Buffer.from("owner"), identityProofAddress.toBuffer()];
+    const tokenSeed = [Buffer.from("owner"), identityAddress.toBuffer()];
     const [tokenMintAddress, _tokenSeedBump] =
       anchor.web3.PublicKey.findProgramAddressSync(
         tokenSeed,
         program.programId
       );
 
-    let blockHash = await provider.connection.getLatestBlockhash();
-    await program.provider.connection.confirmTransaction(
-      {
-        blockhash: blockHash.blockhash,
-        lastValidBlockHeight: blockHash.lastValidBlockHeight,
-        signature: tx,
-      },
-      "confirmed"
-    );
+    await checkConfirmTransaction(provider,tx);
+
     creatorToken = await getMint(
       provider.connection,
       tokenMintAddress,
@@ -226,12 +215,7 @@ describe("creator-token", () => {
 
     console.log("Fan successfully bought creator tokens : ", buyCreatorTokenTx);
 
-    blockHash = await provider.connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction({
-      blockhash: blockHash.blockhash,
-      lastValidBlockHeight: blockHash.lastValidBlockHeight,
-      signature: buyCreatorTokenTx,
-    });
+    await checkConfirmTransaction(provider,buyCreatorTokenTx);
 
     const creatorATA = await getAssociatedTokenAddress(
       creatorToken.address,
@@ -262,29 +246,8 @@ describe("creator-token", () => {
       fan.publicKey,
       10 * anchor.web3.LAMPORTS_PER_SOL
     );
-    let blockHash = await provider.connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction({
-      blockhash: blockHash.blockhash,
-      lastValidBlockHeight: blockHash.lastValidBlockHeight,
-      signature: airdropTx,
-    });
 
-    const identityProofSeed = [
-      Buffer.from("identity"),
-      creator.publicKey.toBuffer(),
-    ];
-    const [identityProofAddress, _identityProofBump] =
-      anchor.web3.PublicKey.findProgramAddressSync(
-        identityProofSeed,
-        program.programId
-      );
-
-    const vaultSeeds = [Buffer.from("vault"), identityProofAddress.toBuffer()];
-    const [vaultAddress, _vaultBump] =
-      anchor.web3.PublicKey.findProgramAddressSync(
-        vaultSeeds,
-        program.programId
-      );
+    await checkConfirmTransaction(provider,airdropTx);
 
     const initialVaultBalance = await provider.connection.getBalance(
       vaultAddress,
@@ -303,12 +266,7 @@ describe("creator-token", () => {
 
     console.log("Fan successfully bought creator tokens : ", buyCreatorTokenTx);
 
-    blockHash = await provider.connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction({
-      blockhash: blockHash.blockhash,
-      lastValidBlockHeight: blockHash.lastValidBlockHeight,
-      signature: buyCreatorTokenTx,
-    });
+    await checkConfirmTransaction(provider,buyCreatorTokenTx);
 
     // Check how many tokens does the fan has
     // Derive fan ATA for token
@@ -360,21 +318,6 @@ describe("creator-token", () => {
     );
     
     // Check vault lamports should be > 0 
-    const identityProofSeed = [
-      Buffer.from("identity"),
-      creator.publicKey.toBuffer(),
-    ];
-    const [identityProofAddress, _identityProofBump] =
-      anchor.web3.PublicKey.findProgramAddressSync(
-        identityProofSeed,
-        program.programId
-      );
-    const vaultSeeds = [Buffer.from("vault"), identityProofAddress.toBuffer()];
-    const [vaultAddress, _vaultBump] =
-      anchor.web3.PublicKey.findProgramAddressSync(
-        vaultSeeds,
-        program.programId
-      );
     const vaultBalanceBefore = await provider.connection.getBalance(
       vaultAddress,
       "confirmed"
@@ -394,12 +337,7 @@ describe("creator-token", () => {
     
     console.log("Fan successfully sold tokens : ", sellTx);
     
-    const latestBlock = await provider.connection.getLatestBlockhash();
-    await provider.connection.confirmTransaction({
-      blockhash: latestBlock.blockhash,
-      lastValidBlockHeight: latestBlock.lastValidBlockHeight,
-      signature: sellTx,
-    });
+    await checkConfirmTransaction(provider, sellTx);
 
     const vaultBalanceAfter = await provider.connection.getBalance(vaultAddress, "confirmed");
 
@@ -428,3 +366,18 @@ describe("creator-token", () => {
     // check if vault has 0 SOL
   } )
 });
+
+
+async function checkConfirmTransaction(provider: anchor.Provider, tx: string){
+  const latestBlock = await provider.connection.getLatestBlockhash();
+  const transactionResult = await provider.connection.confirmTransaction(
+    {
+      blockhash: latestBlock.blockhash,
+      lastValidBlockHeight: latestBlock.lastValidBlockHeight,
+      signature: tx,
+    },
+    "confirmed"
+  );
+
+  return transactionResult;
+}
