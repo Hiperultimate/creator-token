@@ -10,6 +10,7 @@ import {
   Mint,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
+import { airDropSOLAmount, buyCreatorToken, checkConfirmTransaction, getBuyingPriceForToken, getSellingPriceForToken } from "./helper-fns";
 
 describe("creator-token", () => {
   // Configure the client to use the local cluster.
@@ -22,16 +23,13 @@ describe("creator-token", () => {
 
   // Token details
   let creatorToken: Mint;
-  let identityAddress : anchor.web3.PublicKey;
-  let vaultAddress : anchor.web3.PublicKey;
+  let identityAddress: anchor.web3.PublicKey;
+  let vaultAddress: anchor.web3.PublicKey;
 
   // Write a before statement where you mint some tokens to creator
   before(async () => {
     // mint SOL to creator
-    const airdropTx = await provider.connection.requestAirdrop(
-      creator.publicKey,
-      5 * anchor.web3.LAMPORTS_PER_SOL
-    );
+    const airdropTx = await airDropSOLAmount(provider, creator.publicKey, 5);
     console.log("Airdropped SOL successfully :", airdropTx);
   });
 
@@ -103,10 +101,11 @@ describe("creator-token", () => {
       Buffer.from("identity"),
       creator.publicKey.toBuffer(),
     ];
-    const [getIdentityAddress, _] = anchor.web3.PublicKey.findProgramAddressSync(
-      identitySeed,
-      program.programId
-    );
+    const [getIdentityAddress, _] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        identitySeed,
+        program.programId
+      );
 
     identityAddress = getIdentityAddress;
 
@@ -115,7 +114,7 @@ describe("creator-token", () => {
       anchor.web3.PublicKey.findProgramAddressSync(
         vaultSeeds,
         program.programId
-    );
+      );
 
     vaultAddress = getVaultAddress;
 
@@ -157,7 +156,7 @@ describe("creator-token", () => {
         program.programId
       );
 
-    await checkConfirmTransaction(provider,tx);
+    await checkConfirmTransaction(provider, tx);
 
     creatorToken = await getMint(
       provider.connection,
@@ -199,23 +198,16 @@ describe("creator-token", () => {
     // Make creator buy some of their newly made token in exchange for some SOL
 
     const amtOfTokens = 50;
-    const tokenToBuy = new anchor.BN(amtOfTokens).mul(
-      new anchor.BN(10).pow(new anchor.BN(creatorToken.decimals))
-    );
-
-    const buyCreatorTokenTx = await program.methods
-      .buyCreatorToken(tokenToBuy)
-      .accounts({
-        buyer: creator.publicKey,
-        creator: creator.publicKey,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-      })
-      .signers([creator])
-      .rpc();
+    const { buyCreatorTokenTx, tokenBought } = await buyCreatorToken({
+      provider: provider,
+      program: program,
+      decimals: creatorToken.decimals,
+      signer: creator,
+      tokenCreator: creator.publicKey,
+      tokenToMintWholeNumber: amtOfTokens,
+    });
 
     console.log("Fan successfully bought creator tokens : ", buyCreatorTokenTx);
-
-    await checkConfirmTransaction(provider,buyCreatorTokenTx);
 
     const creatorATA = await getAssociatedTokenAddress(
       creatorToken.address,
@@ -232,41 +224,30 @@ describe("creator-token", () => {
 
     expect(createrATABalance.value.uiAmount).eq(amtOfTokens);
     expect(createrATABalance.value.decimals).eq(creatorToken.decimals);
-    expect(createrATABalance.value.amount).eq(tokenToBuy.toString());
+    expect(createrATABalance.value.amount).eq(tokenBought.toString());
   });
 
   it("Success fan buys some creator tokens", async () => {
-    const amtOfTokens = 25;
-    const tokenToBuy = new anchor.BN(amtOfTokens).mul(
-      new anchor.BN(10).pow(new anchor.BN(creatorToken.decimals))
-    ); // amtOfTokens * (10 ** tokenDecimals) = 25 * 10^6
-
     // airdrop fan, then confirm transaction
-    const airdropTx = await provider.connection.requestAirdrop(
-      fan.publicKey,
-      10 * anchor.web3.LAMPORTS_PER_SOL
-    );
-
-    await checkConfirmTransaction(provider,airdropTx);
+    await airDropSOLAmount(provider, fan.publicKey, 10);
 
     const initialVaultBalance = await provider.connection.getBalance(
       vaultAddress,
       "confirmed"
     );
 
-    const buyCreatorTokenTx = await program.methods
-      .buyCreatorToken(tokenToBuy)
-      .accounts({
-        buyer: fan.publicKey,
-        creator: creator.publicKey,
-        tokenProgram: TOKEN_2022_PROGRAM_ID,
-      })
-      .signers([fan])
-      .rpc();
+    const amtOfTokens = 25;
+    const { buyCreatorTokenTx, tokenBought: tokenToBuy } =
+      await buyCreatorToken({
+        provider: provider,
+        program: program,
+        decimals: creatorToken.decimals,
+        signer: fan,
+        tokenCreator: creator.publicKey,
+        tokenToMintWholeNumber: amtOfTokens,
+      });
 
     console.log("Fan successfully bought creator tokens : ", buyCreatorTokenTx);
-
-    await checkConfirmTransaction(provider,buyCreatorTokenTx);
 
     // Check how many tokens does the fan has
     // Derive fan ATA for token
@@ -303,7 +284,9 @@ describe("creator-token", () => {
 
     // console.log("CHECKING VAULT BALANCE :", laterVaultBalance);
 
-    expect(laterVaultBalance-initialVaultBalance).eq(lamportsNeededBN.toNumber());
+    expect(laterVaultBalance - initialVaultBalance).eq(
+      lamportsNeededBN.toNumber()
+    );
   });
 
   it("Fan sells their creator tokens", async () => {
@@ -316,8 +299,8 @@ describe("creator-token", () => {
       fan.publicKey,
       "confirmed"
     );
-    
-    // Check vault lamports should be > 0 
+
+    // Check vault lamports should be > 0
     const vaultBalanceBefore = await provider.connection.getBalance(
       vaultAddress,
       "confirmed"
@@ -334,50 +317,119 @@ describe("creator-token", () => {
       })
       .signers([fan])
       .rpc();
-    
+
     console.log("Fan successfully sold tokens : ", sellTx);
-    
+
     await checkConfirmTransaction(provider, sellTx);
 
-    const vaultBalanceAfter = await provider.connection.getBalance(vaultAddress, "confirmed");
+    const vaultBalanceAfter = await provider.connection.getBalance(
+      vaultAddress,
+      "confirmed"
+    );
 
     // Check user lamports should be +
-    const fanBalanceAfter = await provider.connection.getBalance(fan.publicKey, "confirmed");
+    const fanBalanceAfter = await provider.connection.getBalance(
+      fan.publicKey,
+      "confirmed"
+    );
     // console.log("Checking fan balance :", fanBalanceBefore, fanBalanceAfter);
-    expect(fanBalanceAfter - fanBalanceBefore).eq(vaultBalanceBefore- vaultBalanceAfter);
-
+    expect(fanBalanceAfter - fanBalanceBefore).eq(
+      vaultBalanceBefore - vaultBalanceAfter
+    );
   });
 
   it("Fan makes a profit by buying early and selling later", async () => {
-    // Create fan 1 
+    // Create fan 1
     // Create fan 2
+    const fan1 = anchor.web3.Keypair.generate();
+    const fan2 = anchor.web3.Keypair.generate();
 
-    // Mint SOL to fan1 
-    // Mint SOL to fan2
+    // Airdrop SOL to fan1
+    // Airdrop SOL to fan2
+    const SOL_TO_AIRDROP = 20;
+    await airDropSOLAmount(provider, fan1.publicKey, SOL_TO_AIRDROP);
+    await airDropSOLAmount(provider, fan2.publicKey, SOL_TO_AIRDROP);
 
-    // fan1 buys 50 creator token
-    // fan2 buys 50 creator token next
+    // fan1 buys 10 creator token
+    // fan2 buys 10 creator token next
+    const amtOfTokens = 10;
 
-    // fan1 sells creator token
-    // fan2 sells creator token
+    // Check buy price of fan1 to buy tokens
+    const fan1QuotedBuyingPrice = await getBuyingPriceForToken(program, amtOfTokens, creatorToken.decimals, creator.publicKey);
+    const { buyCreatorTokenTx: fan1BuyTokenTx, tokenBought: tokenBoughtFan1 } =
+      await buyCreatorToken({
+        provider,
+        program,
+        decimals: creatorToken.decimals,
+        signer: fan1,
+        tokenCreator: creator.publicKey,
+        tokenToMintWholeNumber: amtOfTokens,
+      });
+
+    // Check buy price of fan2 to buy tokens
+    const fan2QuotedBuyingPrice = await getBuyingPriceForToken(program, amtOfTokens, creatorToken.decimals, creator.publicKey);
+    const { buyCreatorTokenTx: fan2BuyTokenTx, tokenBought: tokenBoughtFan2 } =
+      await buyCreatorToken({
+        provider,
+        program,
+        decimals: creatorToken.decimals,
+        signer: fan2,
+        tokenCreator: creator.publicKey,
+        tokenToMintWholeNumber: amtOfTokens,
+      });
+
+    expect(tokenBoughtFan1.toString()).eq(tokenBoughtFan2.toString());
+    expect(new anchor.BN(fan1QuotedBuyingPrice).sub(new anchor.BN(fan2QuotedBuyingPrice)).toNumber()).lessThan(0); // fan2 quoted price should be greater
+
+    let tokenAmtToSell = tokenBoughtFan1; // both fans should have same amount of tokens
+
+    console.log("Fan 1 bought creator token succesfully : ", fan1BuyTokenTx);
+    console.log("Fan 2 bought creator token succesfully : ", fan2BuyTokenTx);
+    // console.log("Checking the price of fan1 and fan2 buying : ", fan1QuotedBuyingPrice.toString(), fan2QuotedBuyingPrice.toString());
+    
+    // check how much SOL would fan1 get for selling his current token
+    const fan1QuotedSellPrice = await getSellingPriceForToken(program, amtOfTokens, creatorToken.decimals, creator.publicKey);
+
+    // fan1 sells creator token first to get a profit
+    // fan2 sells creator token second at a loss
+    const fan1SellTx = await program.methods
+      .sellCreatorToken(tokenAmtToSell)
+      .accounts({
+        seller: fan1.publicKey,
+        creator: creator.publicKey,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      })
+      .signers([fan1])
+      .rpc();
+    await checkConfirmTransaction(provider, fan1SellTx);
+
+    console.log("Fan1 successfully sold tokens : ", fan1SellTx);
+
+    // check how much SOL would fan2 get for selling his current token
+    const fan2QuotedSellPrice = await getSellingPriceForToken(program, amtOfTokens, creatorToken.decimals, creator.publicKey);
+
+    const fan2SellTx = await program.methods
+      .sellCreatorToken(tokenAmtToSell)
+      .accounts({
+        seller: fan2.publicKey,
+        creator: creator.publicKey,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      })
+      .signers([fan2])
+      .rpc();
+    await checkConfirmTransaction(provider, fan2SellTx);
+
+    console.log("Fan2 successfully sold tokens : ", fan2SellTx);
 
     // compare fan1 initial SOL count with after selling creator token, pass if higher than before
+    // console.log("Checking the price of fan1 and fan2 sell : ", fan1QuotedSellPrice.toString(), fan2QuotedSellPrice.toString());
+    expect(new anchor.BN(fan1QuotedSellPrice).sub(new anchor.BN(fan2QuotedSellPrice)).toNumber()).greaterThan(0); // fan1 quoted price should be greater
 
-    // check if vault has 0 SOL
-  } )
+    const fan1BalanceAfterSell = await provider.connection.getBalance(fan1.publicKey);
+    const fan2BalanceAfterSell = await provider.connection.getBalance(fan2.publicKey);
+
+    expect(fan1BalanceAfterSell).greaterThan(fan2BalanceAfterSell);
+    expect(fan2QuotedBuyingPrice.toString()).eq(fan1QuotedSellPrice.toString());
+    expect(fan1QuotedBuyingPrice.toString()).eq(fan2QuotedSellPrice.toString());
+  });
 });
-
-
-async function checkConfirmTransaction(provider: anchor.Provider, tx: string){
-  const latestBlock = await provider.connection.getLatestBlockhash();
-  const transactionResult = await provider.connection.confirmTransaction(
-    {
-      blockhash: latestBlock.blockhash,
-      lastValidBlockHeight: latestBlock.lastValidBlockHeight,
-      signature: tx,
-    },
-    "confirmed"
-  );
-
-  return transactionResult;
-}
