@@ -118,7 +118,7 @@ export default function Discover() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9 + index * 0.1 }}
             >
-              <Card className="glass-card hover:glow-primary transition-all duration-300 cursor-pointer group h-full">
+               <Card className="glass-card hover:glow-primary transition-all duration-300 cursor-pointer group h-full flex flex-col">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -140,34 +140,36 @@ export default function Discover() {
                     <Star className="h-5 w-5 text-muted-foreground group-hover:text-accent transition-colors" />
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {creator.identity.proofUrl}
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="space-y-1">
-                      <div className="text-muted-foreground">Current Price</div>
-                      <div className="font-semibold text-success">
-                        {creator.currentPrice} SOL
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-muted-foreground">Total Supply</div>
-                      <div className="font-semibold">
-                        {creator.totalSupply?.toLocaleString()}
-                      </div>
-                    </div>
-                  </div>
+                 <CardContent className="flex flex-col flex-1">
+                   <div className="space-y-4 pb-4">
+                     <p className="text-sm text-muted-foreground line-clamp-2">
+                       {creator.identity.proofUrl}
+                     </p>
 
-                  <Button 
-                    variant="default" 
-                    className="w-full"
-                    onClick={() => navigate(`/creator/${creator.pubkey.toBase58()}`)}
-                  >
-                    View Profile
-                  </Button>
-                </CardContent>
+                     <div className="grid grid-cols-2 gap-4 text-sm">
+                       <div className="space-y-1">
+                         <div className="text-muted-foreground">Current Price</div>
+                         <div className="font-semibold text-success">
+                           {creator.currentPrice} SOL
+                         </div>
+                       </div>
+                       <div className="space-y-1">
+                         <div className="text-muted-foreground">Total Supply</div>
+                         <div className="font-semibold">
+                           {creator.totalSupply?.toLocaleString()}
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+
+                   <Button
+                     variant="default"
+                     className="w-full mt-auto"
+                     onClick={() => navigate(`/creator/${creator.pubkey.toBase58()}`)}
+                   >
+                     View Profile
+                   </Button>
+                 </CardContent>
               </Card>
             </motion.div>
           ))}
