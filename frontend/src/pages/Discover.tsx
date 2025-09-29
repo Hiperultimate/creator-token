@@ -1,42 +1,47 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Creator } from '@/types/anchor';
-import { Search, TrendingUp, Users, Star } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Creator } from "@/types/anchor";
+import { Search, TrendingUp, Users, Star } from "lucide-react";
+import { motion } from "framer-motion";
+import { checkUserBalance, requestAirdrop } from "@/hooks/useAnchor";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // Mock creators data - replace with actual data fetching
 const mockCreators: Creator[] = [
   {
-    pubkey: { toBase58: () => 'Creator1' } as any,
+    pubkey: { toBase58: () => "Creator1" } as any,
     identity: {
-      creator: { toBase58: () => 'Creator1' } as any,
-      creatorName: 'Alice Johnson',
-      proofUrl: 'Crypto artist and NFT creator building the future of digital art',
+      creator: { toBase58: () => "Creator1" } as any,
+      creatorName: "Alice Johnson",
+      proofUrl:
+        "Crypto artist and NFT creator building the future of digital art",
     },
     currentPrice: 0.15,
     totalSupply: 10000,
     holdersCount: 145,
   },
   {
-    pubkey: { toBase58: () => 'Creator2' } as any,
+    pubkey: { toBase58: () => "Creator2" } as any,
     identity: {
-      creator: { toBase58: () => 'Creator2' } as any,
-      creatorName: 'Bob Williams',
-      proofUrl: 'DeFi educator sharing insights about yield farming and protocols',
+      creator: { toBase58: () => "Creator2" } as any,
+      creatorName: "Bob Williams",
+      proofUrl:
+        "DeFi educator sharing insights about yield farming and protocols",
     },
     currentPrice: 0.08,
     totalSupply: 25000,
     holdersCount: 89,
   },
   {
-    pubkey: { toBase58: () => 'Creator3' } as any,
+    pubkey: { toBase58: () => "Creator3" } as any,
     identity: {
-      creator: { toBase58: () => 'Creator3' } as any,
-      creatorName: 'Carol Smith',
-      proofUrl: 'Web3 developer creating tutorials and open-source tools',
+      creator: { toBase58: () => "Creator3" } as any,
+      creatorName: "Carol Smith",
+      proofUrl: "Web3 developer creating tutorials and open-source tools",
     },
     currentPrice: 0.22,
     totalSupply: 5000,
@@ -45,12 +50,27 @@ const mockCreators: Creator[] = [
 ];
 
 export default function Discover() {
-  const [searchQuery, setSearchQuery] = useState('');
+  // Temp
+  const client = useQueryClient();
+  const wallet = useWallet();
+  const { connection } = useConnection();
+  const { data: balanceInSol, isLoading } = useQuery({
+    queryKey: ["get-balance"],
+    queryFn: () => checkUserBalance(wallet.publicKey, connection),
+  });
+  // Temp
+
+  const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
-  const filteredCreators = mockCreators.filter(creator =>
-    creator.identity.creatorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    creator.identity.proofUrl.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCreators = mockCreators.filter(
+    (creator) =>
+      creator.identity.creatorName
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      creator.identity.proofUrl
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -60,9 +80,28 @@ export default function Discover() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
+        <div>
+          <Button
+            variant="outline"
+            className="w-full mt-auto"
+            onClick={async () => {
+              await requestAirdrop(wallet.publicKey, connection, 5);
+              client.invalidateQueries({ queryKey : ["get-balance"]});
+            }}
+          >
+            Airdrop Sol
+          </Button>
+          {isLoading ? (
+            <div>Loading balance...</div>
+          ) : (
+            <div>
+              <span>User Balance : {balanceInSol} </span>
+            </div>
+          )}
+        </div>
         {/* Header */}
         <div className="text-center mb-12">
-          <motion.h1 
+          <motion.h1
             className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-hero bg-clip-text text-transparent"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -70,17 +109,18 @@ export default function Discover() {
           >
             Discover Creators
           </motion.h1>
-          <motion.p 
+          <motion.p
             className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            Invest in your favorite creators and get exclusive access to their content
+            Invest in your favorite creators and get exclusive access to their
+            content
           </motion.p>
 
           {/* Search Bar */}
-          <motion.div 
+          <motion.div
             className="relative max-w-md mx-auto"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -97,7 +137,7 @@ export default function Discover() {
         </div>
 
         {/* Trending Section */}
-        <motion.div 
+        <motion.div
           className="mb-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -118,7 +158,7 @@ export default function Discover() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.9 + index * 0.1 }}
             >
-               <Card className="glass-card hover:glow-primary transition-all duration-300 cursor-pointer group h-full flex flex-col">
+              <Card className="glass-card hover:glow-primary transition-all duration-300 cursor-pointer group h-full flex flex-col">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -140,36 +180,42 @@ export default function Discover() {
                     <Star className="h-5 w-5 text-muted-foreground group-hover:text-accent transition-colors" />
                   </div>
                 </CardHeader>
-                 <CardContent className="flex flex-col flex-1">
-                   <div className="space-y-4 pb-4">
-                     <p className="text-sm text-muted-foreground line-clamp-2">
-                       {creator.identity.proofUrl}
-                     </p>
+                <CardContent className="flex flex-col flex-1">
+                  <div className="space-y-4 pb-4">
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {creator.identity.proofUrl}
+                    </p>
 
-                     <div className="grid grid-cols-2 gap-4 text-sm">
-                       <div className="space-y-1">
-                         <div className="text-muted-foreground">Current Price</div>
-                         <div className="font-semibold text-success">
-                           {creator.currentPrice} SOL
-                         </div>
-                       </div>
-                       <div className="space-y-1">
-                         <div className="text-muted-foreground">Total Supply</div>
-                         <div className="font-semibold">
-                           {creator.totalSupply?.toLocaleString()}
-                         </div>
-                       </div>
-                     </div>
-                   </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="space-y-1">
+                        <div className="text-muted-foreground">
+                          Current Price
+                        </div>
+                        <div className="font-semibold text-success">
+                          {creator.currentPrice} SOL
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-muted-foreground">
+                          Total Supply
+                        </div>
+                        <div className="font-semibold">
+                          {creator.totalSupply?.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-                   <Button
-                     variant="default"
-                     className="w-full mt-auto"
-                     onClick={() => navigate(`/creator/${creator.pubkey.toBase58()}`)}
-                   >
-                     View Profile
-                   </Button>
-                 </CardContent>
+                  <Button
+                    variant="default"
+                    className="w-full mt-auto"
+                    onClick={() =>
+                      navigate(`/creator/${creator.pubkey.toBase58()}`)
+                    }
+                  >
+                    View Profile
+                  </Button>
+                </CardContent>
               </Card>
             </motion.div>
           ))}
@@ -177,7 +223,7 @@ export default function Discover() {
 
         {/* Empty State */}
         {filteredCreators.length === 0 && (
-          <motion.div 
+          <motion.div
             className="text-center py-12"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -192,7 +238,7 @@ export default function Discover() {
         )}
 
         {/* CTA for becoming a creator */}
-        <motion.div 
+        <motion.div
           className="mt-16 text-center"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -202,12 +248,13 @@ export default function Discover() {
             <CardContent className="p-8">
               <h3 className="text-2xl font-bold mb-4">Become a Creator</h3>
               <p className="text-muted-foreground mb-6">
-                Share your content, build your community, and monetize your creativity
+                Share your content, build your community, and monetize your
+                creativity
               </p>
-              <Button 
-                variant="default" 
+              <Button
+                variant="default"
                 size="lg"
-                onClick={() => navigate('/creator/create_identity')}
+                onClick={() => navigate("/creator/create_identity")}
               >
                 Start Creating Today
               </Button>

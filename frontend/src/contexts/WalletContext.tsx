@@ -17,9 +17,21 @@ interface WalletContextProviderProps {
 }
 
 export const WalletContextProvider: React.FC<WalletContextProviderProps> = ({ children }) => {
-  // Use devnet for development, change to mainnet-beta for production
-  const network = WalletAdapterNetwork.Devnet;
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  // Use devnet for POC deployment, change to mainnet-beta for production
+  // Currently using localnet for development
+  // const network = WalletAdapterNetwork.Devnet;
+  // const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+
+  // const wallets = useMemo(
+  //   () => [
+  //     new PhantomWalletAdapter(),
+  //     new SolflareWalletAdapter(),
+  //     new TorusWalletAdapter(),
+  //   ],
+  //   [network]
+  // );
+
+  const endpoint = "http://127.0.0.1:8899";
 
   const wallets = useMemo(
     () => [
@@ -27,7 +39,7 @@ export const WalletContextProvider: React.FC<WalletContextProviderProps> = ({ ch
       new SolflareWalletAdapter(),
       new TorusWalletAdapter(),
     ],
-    [network]
+    []
   );
 
   return (
