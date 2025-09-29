@@ -6,11 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAnchor } from '@/hooks/useAnchor';
 import { User, FileText, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import useCreatorTokenProgramFns from "@/hooks/useCreatorTokenProgramFns";
+import { useWallet } from '@solana/wallet-adapter-react';
+import { toast as SonnerToast } from 'sonner';
 
 const createIdentitySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name must be less than 50 characters'),
@@ -21,10 +23,11 @@ export default function CreateIdentity() {
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({}); // Form errors
+  const { publicKey : userPublicKey } = useWallet();
   
   const { isAuthenticated, updateUser } = useAuth();
-  const { createCreatorIdentity } = useAnchor();
+  const { createIdentityMutation : createCreatorIdentity } = useCreatorTokenProgramFns({ account: userPublicKey });
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -65,35 +68,33 @@ export default function CreateIdentity() {
 
     setIsLoading(true);
     
-    try {
-      // Call anchor method to create creator identity
-      await createCreatorIdentity(name, bio);
-      
-      // Update user context
-      updateUser({
-        isCreator: true,
-        name: name,
-        creatorId: 'new-creator-id', // This would be returned from the anchor call
-      });
+    SonnerToast.promise(
+      createCreatorIdentity.mutateAsync({ userName: name, proofUrl: bio }),
+      {
+        loading: "Submitting creator identity request...",
+        success: (data) => {
+          // Update user context
+          updateUser({
+            isCreator: true,
+            name: name,
+            creatorId: "new-creator-id", // This would be returned from the anchor call
+          });
 
-      toast({
-        title: "Identity created successfully!",
-        description: "You are now a creator. Let's create your first token.",
-      });
+          // Redirect to create token page
+          navigate("/creator/create_token");
 
-      // Redirect to create token page
-      navigate('/creator/create_token');
+          setIsLoading(false);
+
+          return `Identity created successfully!`;
+        },
+        error: (err) => {
+          console.log("An error occured while creating identity : ", err);
+          setIsLoading(false);
+          return `There was an error creating your creator identity. Please try again.`;
+        },
+      }
+    );
       
-    } catch (error) {
-      console.error('Error creating identity:', error);
-      toast({
-        title: "Error creating identity",
-        description: "There was an error creating your creator identity. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   if (!isAuthenticated) {

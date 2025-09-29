@@ -38,6 +38,7 @@ export function useAnchor() {
   }, [provider, programId]);
 
 
+  // TODO : Transfer these to useCreatorTokenProgramFns
   // Helper functions for common operations
   const createCreatorIdentity = async (userName: string, proofUrl: string) => {
     if (!program || !wallet.publicKey) throw new Error('Program or wallet not available');
