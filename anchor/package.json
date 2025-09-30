@@ -1,6 +1,7 @@
 {
   "license": "ISC",
   "scripts": {
+    "localnet" : "anchor localnet",
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
   },

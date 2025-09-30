@@ -1,21 +1,24 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAnchor } from '@/hooks/useAnchor';
-import { Coins, TrendingUp, AlertCircle, Calculator } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useToast } from '@/hooks/use-toast';
-import { z } from 'zod';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { useAuth } from "@/contexts/AuthContext";
+import { Coins, TrendingUp, AlertCircle, Calculator } from "lucide-react";
+import { motion } from "framer-motion";
+import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+import useCreatorTokenProgramFns from "@/hooks/useCreatorTokenProgramFns";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { BN } from "@coral-xyz/anchor";
+import { toast as SonnerToast } from "sonner";
 
 const createTokenSchema = z.object({
   decimals: z.number().min(0).max(9),
-  basePrice: z.number().min(0.001, 'Base price must be at least 0.001 SOL'),
-  slope: z.number().min(0.0001, 'Slope must be at least 0.0001'),
+  basePrice: z.number().min(0.001, "Base price must be at least 0.001 SOL"),
+  slope: z.number().min(0.0001, "Slope must be at least 0.0001"),
 });
 
 export default function CreateToken() {
@@ -24,15 +27,18 @@ export default function CreateToken() {
   const [slope, setSlope] = useState(0.001);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const { isAuthenticated, user } = useAuth();
-  const { createCreatorToken } = useAnchor();
+  const { publicKey: userAddress } = useWallet();
+  const { createCreatorTokenMutation } = useCreatorTokenProgramFns({
+    account: userAddress,
+  });
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // Calculate example prices
   const calculatePrice = (tokenAmount: number) => {
-    return basePrice + (slope * tokenAmount);
+    return basePrice + slope * tokenAmount;
   };
 
   const validateForm = () => {
@@ -56,7 +62,7 @@ export default function CreateToken() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isAuthenticated || !user?.isCreator) {
       toast({
         title: "Not authorized",
@@ -71,32 +77,33 @@ export default function CreateToken() {
     }
 
     setIsLoading(true);
-    
-    try {
-      // Convert to the format expected by the smart contract
-      const basePriceInLamports = Math.floor(basePrice * 1e9); // Convert SOL to lamports
-      const slopeInLamports = Math.floor(slope * 1e9);
-      
-      await createCreatorToken(decimals, basePriceInLamports, slopeInLamports);
-      
-      toast({
-        title: "Token created successfully!",
-        description: "Your creator token is now live. You can start sharing content!",
-      });
 
-      // Redirect to creator profile
-      navigate(`/creator/${user.creatorId}`);
-      
-    } catch (error) {
-      console.error('Error creating token:', error);
-      toast({
-        title: "Error creating token",
-        description: "There was an error creating your token. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    const basePriceInLamports = new BN(Math.floor(basePrice * 1e9)); // Convert SOL to lamports
+    const slopeInLamports = new BN(Math.floor(slope * 1e9));
+    SonnerToast.promise(
+      createCreatorTokenMutation.mutateAsync({
+        decimals,
+        basePriceInLamports,
+        slopeInLamports,
+      }),
+      {
+        loading: "Submitting creator identity request...",
+        success: (data) => {
+          // Redirect to create token page
+          navigate(`/creator/${user.creatorId}`);
+
+          setIsLoading(false);
+
+          return `Your creator token is now live. You can start sharing content!`;
+        },
+        error: (err) => {
+          console.error("Error creating token:", err);
+
+          setIsLoading(false);
+          return `There was an error creating your token. Please try again.`;
+        },
+      }
+    );
   };
 
   if (!isAuthenticated) {
@@ -109,7 +116,7 @@ export default function CreateToken() {
             <p className="text-muted-foreground mb-4">
               Please connect your wallet to create a token
             </p>
-            <Button variant="default" onClick={() => navigate('/discover')}>
+            <Button variant="default" onClick={() => navigate("/discover")}>
               Connect Wallet
             </Button>
           </CardContent>
@@ -124,11 +131,17 @@ export default function CreateToken() {
         <Card className="glass-card max-w-md mx-auto">
           <CardContent className="p-6 text-center">
             <AlertCircle className="mx-auto h-12 w-12 text-warning mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Creator Identity Required</h2>
+            <h2 className="text-2xl font-bold mb-2">
+              Creator Identity Required
+            </h2>
             <p className="text-muted-foreground mb-4">
-              You need to create your creator identity before you can create tokens
+              You need to create your creator identity before you can create
+              tokens
             </p>
-            <Button variant="default" onClick={() => navigate('/creator/create_identity')}>
+            <Button
+              variant="default"
+              onClick={() => navigate("/creator/create_identity")}
+            >
               Create Identity
             </Button>
           </CardContent>
@@ -155,7 +168,7 @@ export default function CreateToken() {
           >
             <Coins className="h-8 w-8 text-white" />
           </motion.div>
-          <motion.h1 
+          <motion.h1
             className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-hero bg-clip-text text-transparent"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -163,7 +176,7 @@ export default function CreateToken() {
           >
             Create Your Token
           </motion.h1>
-          <motion.p 
+          <motion.p
             className="text-lg text-muted-foreground"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -227,10 +240,14 @@ export default function CreateToken() {
                       placeholder="0.01"
                       value={basePrice}
                       onChange={(e) => setBasePrice(Number(e.target.value))}
-                      className={`glass ${errors.basePrice ? 'border-destructive' : ''}`}
+                      className={`glass ${
+                        errors.basePrice ? "border-destructive" : ""
+                      }`}
                     />
                     {errors.basePrice && (
-                      <p className="text-xs text-destructive">{errors.basePrice}</p>
+                      <p className="text-xs text-destructive">
+                        {errors.basePrice}
+                      </p>
                     )}
                     <p className="text-xs text-muted-foreground">
                       Starting price for the first token
@@ -250,7 +267,9 @@ export default function CreateToken() {
                       placeholder="0.001"
                       value={slope}
                       onChange={(e) => setSlope(Number(e.target.value))}
-                      className={`glass ${errors.slope ? 'border-destructive' : ''}`}
+                      className={`glass ${
+                        errors.slope ? "border-destructive" : ""
+                      }`}
                     />
                     {errors.slope && (
                       <p className="text-xs text-destructive">{errors.slope}</p>
@@ -267,9 +286,17 @@ export default function CreateToken() {
                       <div className="text-sm">
                         <p className="font-medium mb-1">Important</p>
                         <ul className="text-muted-foreground space-y-1">
-                          <li>• These settings cannot be changed after creation</li>
-                          <li>• Choose your pricing carefully based on your content value</li>
-                          <li>• Lower base price and slope make tokens more accessible</li>
+                          <li>
+                            • These settings cannot be changed after creation
+                          </li>
+                          <li>
+                            • Choose your pricing carefully based on your
+                            content value
+                          </li>
+                          <li>
+                            • Lower base price and slope make tokens more
+                            accessible
+                          </li>
                         </ul>
                       </div>
                     </div>
@@ -316,12 +343,16 @@ export default function CreateToken() {
               <CardContent>
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    Based on your current settings, here's how your token pricing will work:
+                    Based on your current settings, here's how your token
+                    pricing will work:
                   </p>
-                  
+
                   <div className="space-y-3">
                     {[1, 10, 100, 1000].map((amount) => (
-                      <div key={amount} className="flex justify-between items-center p-3 rounded-lg bg-gradient-card">
+                      <div
+                        key={amount}
+                        className="flex justify-between items-center p-3 rounded-lg bg-gradient-card"
+                      >
                         <span className="text-sm">Token #{amount}</span>
                         <span className="font-semibold text-success">
                           {calculatePrice(amount).toFixed(4)} SOL
@@ -340,7 +371,8 @@ export default function CreateToken() {
                             total += calculatePrice(i);
                           }
                           return total.toFixed(4);
-                        })()} SOL
+                        })()}{" "}
+                        SOL
                       </span>
                     </div>
                   </div>
@@ -349,10 +381,17 @@ export default function CreateToken() {
                     <div className="flex items-start gap-3">
                       <TrendingUp className="h-5 w-5 text-accent mt-0.5" />
                       <div className="text-sm">
-                        <p className="font-medium text-accent mb-1">Pricing Strategy</p>
+                        <p className="font-medium text-accent mb-1">
+                          Pricing Strategy
+                        </p>
                         <p className="text-muted-foreground">
-                          Your current settings create {slope < 0.01 ? 'gradual' : 'steep'} price increases. 
-                          This {slope < 0.01 ? 'encourages early adoption' : 'rewards early supporters more'}.
+                          Your current settings create{" "}
+                          {slope < 0.01 ? "gradual" : "steep"} price increases.
+                          This{" "}
+                          {slope < 0.01
+                            ? "encourages early adoption"
+                            : "rewards early supporters more"}
+                          .
                         </p>
                       </div>
                     </div>

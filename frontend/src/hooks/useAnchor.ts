@@ -155,6 +155,6 @@ export const getUserIdentity = async (address: PublicKey, program: Program<Creat
     program.programId
   );
   const userIdentity = await program.account.identity.fetch(identityPda);
-  console.log("Checking out user Idenity details : ", userIdentity);
+  console.log("Identity stored on blockchain : ", userIdentity);
   return userIdentity;
 }

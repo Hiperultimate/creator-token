@@ -1,37 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAnchor } from '@/hooks/useAnchor';
-import { Creator, Post } from '@/types/anchor';
-import { 
-  Users, 
-  TrendingUp, 
-  Lock, 
-  Plus, 
-  Image as ImageIcon, 
-  Video, 
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAnchor } from "@/hooks/useAnchor";
+import { Creator, Post } from "@/types/anchor";
+import {
+  Users,
+  TrendingUp,
+  Lock,
+  Plus,
+  Image as ImageIcon,
+  Video,
   FileText,
   ArrowUp,
   ArrowDown,
   Upload,
-  X
-} from 'lucide-react';
-import { motion } from 'framer-motion';
+  X,
+} from "lucide-react";
+import { motion } from "framer-motion";
+import useCreatorTokenProgramFns from "@/hooks/useCreatorTokenProgramFns";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 // Mock creator data
 const mockCreator: Creator = {
-  pubkey: { toBase58: () => 'Creator1' } as any,
+  pubkey: { toBase58: () => "Creator1" } as any,
   identity: {
-    creator: { toBase58: () => 'Creator1' } as any,
-    creatorName: 'Alice Johnson',
-    proofUrl: 'Crypto artist and NFT creator building the future of digital art. Sharing exclusive insights, tutorials, and behind-the-scenes content.',
+    creator: { toBase58: () => "Creator1" } as any,
+    creatorName: "Alice Johnson",
+    proofUrl:
+      "Crypto artist and NFT creator building the future of digital art. Sharing exclusive insights, tutorials, and behind-the-scenes content.",
   },
   currentPrice: 0.15,
   totalSupply: 10000,
@@ -41,65 +50,65 @@ const mockCreator: Creator = {
 // Mock posts data
 const mockPosts: Post[] = [
   {
-    id: '1',
-    creatorId: 'Creator1',
-    content: 'Just finished working on my latest NFT collection! Here\'s a sneak peek at the concept art.',
-    imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500',
+    id: "1",
+    creatorId: "Creator1",
+    content:
+      "Just finished working on my latest NFT collection! Here's a sneak peek at the concept art.",
+    imageUrl:
+      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500",
     requiredTokens: 0,
-    createdAt: new Date('2024-01-15'),
-    type: 'image',
+    createdAt: new Date("2024-01-15"),
+    type: "image",
   },
   {
-    id: '2',
-    creatorId: 'Creator1',
-    content: 'Exclusive: My complete guide to creating generative art with AI. This tutorial covers everything from prompting to minting.',
-    videoUrl: 'https://example.com/video1.mp4',
+    id: "2",
+    creatorId: "Creator1",
+    content:
+      "Exclusive: My complete guide to creating generative art with AI. This tutorial covers everything from prompting to minting.",
+    videoUrl: "https://example.com/video1.mp4",
     requiredTokens: 50,
-    createdAt: new Date('2024-01-10'),
-    type: 'video',
+    createdAt: new Date("2024-01-10"),
+    type: "video",
   },
   {
-    id: '3',
-    creatorId: 'Creator1',
-    content: 'Market analysis: Why I think the next bull run will be driven by utility tokens rather than meme coins.',
+    id: "3",
+    creatorId: "Creator1",
+    content:
+      "Market analysis: Why I think the next bull run will be driven by utility tokens rather than meme coins.",
     requiredTokens: 25,
-    createdAt: new Date('2024-01-05'),
-    type: 'text',
+    createdAt: new Date("2024-01-05"),
+    type: "text",
   },
 ];
 
 export default function CreatorProfile() {
   const { creatorId } = useParams<{ creatorId: string }>();
   const { user, isAuthenticated } = useAuth();
+  const { publicKey: userAddress } = useWallet();
+  const { getBuyingCostQuery } = useCreatorTokenProgramFns({
+    account: userAddress,
+  });
   const { buyToken, sellToken, getBuyingCost, getSellingReturn } = useAnchor();
   const navigate = useNavigate();
-  
+
   const [creator, setCreator] = useState<Creator | null>(mockCreator);
   const [posts, setPosts] = useState<Post[]>(mockPosts);
   const [userBalance, setUserBalance] = useState(75); // Mock user token balance
-  const [buyAmount, setBuyAmount] = useState('');
-  const [sellAmount, setSellAmount] = useState('');
-  const [buyingCost, setBuyingCost] = useState(0);
+  const [buyAmount, setBuyAmount] = useState("");
+  const [sellAmount, setSellAmount] = useState("");
+  const { data: buyingCost, isLoading: isBuyingCostLoading } =
+    getBuyingCostQuery(!isNaN(Number(buyAmount)) ? Number(buyAmount) : 0);
   const [sellingReturn, setSellingReturn] = useState(0);
   const [showCreatePost, setShowCreatePost] = useState(false);
-  
+
   // Create post form state
-  const [postContent, setPostContent] = useState('');
-  const [postType, setPostType] = useState<'text' | 'image' | 'video'>('text');
+  const [postContent, setPostContent] = useState("");
+  const [postType, setPostType] = useState<"text" | "image" | "video">("text");
   const [postFile, setPostFile] = useState<File | null>(null);
-  const [postRequiredTokens, setPostRequiredTokens] = useState('0');
+  const [postRequiredTokens, setPostRequiredTokens] = useState("0");
   const [filePreview, setFilePreview] = useState<string | null>(null);
 
   const isOwnProfile = user?.creatorId === creatorId;
-
-  useEffect(() => {
-    // Calculate buying cost when amount changes
-    if (buyAmount && !isNaN(Number(buyAmount))) {
-      getBuyingCost(Number(buyAmount)).then(setBuyingCost);
-    } else {
-      setBuyingCost(0);
-    }
-  }, [buyAmount, getBuyingCost]);
 
   useEffect(() => {
     // Calculate selling return when amount changes
@@ -112,28 +121,28 @@ export default function CreatorProfile() {
 
   const handleBuyTokens = async () => {
     if (!buyAmount || !isAuthenticated) return;
-    
+
     try {
       await buyToken(Number(buyAmount));
-      setUserBalance(prev => prev + Number(buyAmount));
-      setBuyAmount('');
+      setUserBalance((prev) => prev + Number(buyAmount));
+      setBuyAmount("");
       // Show success toast
     } catch (error) {
-      console.error('Error buying tokens:', error);
+      console.error("Error buying tokens:", error);
       // Show error toast
     }
   };
 
   const handleSellTokens = async () => {
     if (!sellAmount || !isAuthenticated) return;
-    
+
     try {
       await sellToken(Number(sellAmount));
-      setUserBalance(prev => prev - Number(sellAmount));
-      setSellAmount('');
+      setUserBalance((prev) => prev - Number(sellAmount));
+      setSellAmount("");
       // Show success toast
     } catch (error) {
-      console.error('Error selling tokens:', error);
+      console.error("Error selling tokens:", error);
       // Show error toast
     }
   };
@@ -143,11 +152,11 @@ export default function CreatorProfile() {
     if (file) {
       setPostFile(file);
       // Create preview for images
-      if (file.type.startsWith('image/')) {
+      if (file.type.startsWith("image/")) {
         const reader = new FileReader();
         reader.onload = (e) => setFilePreview(e.target?.result as string);
         reader.readAsDataURL(file);
-      } else if (file.type.startsWith('video/')) {
+      } else if (file.type.startsWith("video/")) {
         const url = URL.createObjectURL(file);
         setFilePreview(url);
       }
@@ -156,44 +165,46 @@ export default function CreatorProfile() {
 
   const handleCreatePost = async () => {
     if (!postContent.trim()) return;
-    
+
     try {
       // TODO: Implement actual backend API call to create post
       const newPost: Post = {
         id: Date.now().toString(),
-        creatorId: creatorId || '',
+        creatorId: creatorId || "",
         content: postContent,
         requiredTokens: Number(postRequiredTokens),
         createdAt: new Date(),
         type: postType,
-        ...(postType === 'image' && postFile && { imageUrl: filePreview || undefined }),
-        ...(postType === 'video' && postFile && { videoUrl: filePreview || undefined }),
+        ...(postType === "image" &&
+          postFile && { imageUrl: filePreview || undefined }),
+        ...(postType === "video" &&
+          postFile && { videoUrl: filePreview || undefined }),
       };
-      
-      setPosts(prev => [newPost, ...prev]);
-      
+
+      setPosts((prev) => [newPost, ...prev]);
+
       // Reset form
-      setPostContent('');
-      setPostType('text');
+      setPostContent("");
+      setPostType("text");
       setPostFile(null);
       setFilePreview(null);
-      setPostRequiredTokens('0');
+      setPostRequiredTokens("0");
       setShowCreatePost(false);
-      
+
       // Show success toast
-      console.log('Post created successfully');
+      console.log("Post created successfully");
     } catch (error) {
-      console.error('Error creating post:', error);
+      console.error("Error creating post:", error);
       // Show error toast
     }
   };
 
   const resetCreatePostForm = () => {
-    setPostContent('');
-    setPostType('text');
+    setPostContent("");
+    setPostType("text");
     setPostFile(null);
     setFilePreview(null);
-    setPostRequiredTokens('0');
+    setPostRequiredTokens("0");
   };
 
   const canViewPost = (post: Post) => {
@@ -205,8 +216,10 @@ export default function CreatorProfile() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Creator not found</h2>
-          <p className="text-muted-foreground mb-4">This creator profile doesn't exist</p>
-          <Button variant="default" onClick={() => navigate('/discover')}>
+          <p className="text-muted-foreground mb-4">
+            This creator profile doesn't exist
+          </p>
+          <Button variant="default" onClick={() => navigate("/discover")}>
             Back to Discover
           </Button>
         </div>
@@ -231,25 +244,33 @@ export default function CreatorProfile() {
                   {creator.identity.creatorName.charAt(0)}
                 </span>
               </div>
-              
+
               <div className="flex-1 space-y-4">
                 <div>
-                  <h1 className="text-3xl font-bold mb-2">{creator.identity.creatorName}</h1>
-                  <p className="text-muted-foreground">{creator.identity.proofUrl}</p>
+                  <h1 className="text-3xl font-bold mb-2">
+                    {creator.identity.creatorName}
+                  </h1>
+                  <p className="text-muted-foreground">
+                    {creator.identity.proofUrl}
+                  </p>
                 </div>
-                
+
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
                     <div className="text-2xl font-bold text-success animate-counter">
                       {creator.currentPrice} SOL
                     </div>
-                    <div className="text-sm text-muted-foreground">Current Price</div>
+                    <div className="text-sm text-muted-foreground">
+                      Current Price
+                    </div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold animate-counter">
                       {creator.totalSupply?.toLocaleString()}
                     </div>
-                    <div className="text-sm text-muted-foreground">Total Supply</div>
+                    <div className="text-sm text-muted-foreground">
+                      Total Supply
+                    </div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-accent animate-counter">
@@ -291,8 +312,8 @@ export default function CreatorProfile() {
                         onChange={(e) => setBuyAmount(e.target.value)}
                         className="flex-1"
                       />
-                      <Button 
-                        variant="default" 
+                      <Button
+                        variant="default"
                         onClick={handleBuyTokens}
                         disabled={!buyAmount || !isAuthenticated}
                       >
@@ -300,9 +321,10 @@ export default function CreatorProfile() {
                         Buy
                       </Button>
                     </div>
-                    {buyingCost > 0 && (
+                    {buyingCost && (
                       <p className="text-xs text-muted-foreground">
-                        Cost: {buyingCost.toFixed(4)} SOL
+                        {isBuyingCostLoading && <span>Price loading...</span>}
+                        {!isBuyingCostLoading && <span> Cost: {buyingCost.toFixed(4)} SOL</span>}
                       </p>
                     )}
                   </div>
@@ -319,10 +341,14 @@ export default function CreatorProfile() {
                         max={userBalance}
                         className="flex-1"
                       />
-                      <Button 
-                        variant="secondary" 
+                      <Button
+                        variant="secondary"
                         onClick={handleSellTokens}
-                        disabled={!sellAmount || !isAuthenticated || Number(sellAmount) > userBalance}
+                        disabled={
+                          !sellAmount ||
+                          !isAuthenticated ||
+                          Number(sellAmount) > userBalance
+                        }
                       >
                         <ArrowDown className="h-4 w-4 mr-1" />
                         Sell
@@ -358,10 +384,13 @@ export default function CreatorProfile() {
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Content Feed</h2>
               {isOwnProfile && (
-                <Dialog open={showCreatePost} onOpenChange={(open) => {
-                  setShowCreatePost(open);
-                  if (!open) resetCreatePostForm();
-                }}>
+                <Dialog
+                  open={showCreatePost}
+                  onOpenChange={(open) => {
+                    setShowCreatePost(open);
+                    if (!open) resetCreatePostForm();
+                  }}
+                >
                   <DialogTrigger asChild>
                     <Button variant="default" className="gap-2">
                       <Plus className="h-4 w-4" />
@@ -379,27 +408,33 @@ export default function CreatorProfile() {
                         <div className="flex gap-2">
                           <Button
                             type="button"
-                            variant={postType === 'text' ? 'default' : 'outline'}
+                            variant={
+                              postType === "text" ? "default" : "outline"
+                            }
                             size="sm"
-                            onClick={() => setPostType('text')}
+                            onClick={() => setPostType("text")}
                           >
                             <FileText className="h-4 w-4 mr-2" />
                             Text
                           </Button>
                           <Button
                             type="button"
-                            variant={postType === 'image' ? 'default' : 'outline'}
+                            variant={
+                              postType === "image" ? "default" : "outline"
+                            }
                             size="sm"
-                            onClick={() => setPostType('image')}
+                            onClick={() => setPostType("image")}
                           >
                             <ImageIcon className="h-4 w-4 mr-2" />
                             Image
                           </Button>
                           <Button
                             type="button"
-                            variant={postType === 'video' ? 'default' : 'outline'}
+                            variant={
+                              postType === "video" ? "default" : "outline"
+                            }
                             size="sm"
-                            onClick={() => setPostType('video')}
+                            onClick={() => setPostType("video")}
                           >
                             <Video className="h-4 w-4 mr-2" />
                             Video
@@ -420,10 +455,12 @@ export default function CreatorProfile() {
                       </div>
 
                       {/* File Upload for Image/Video */}
-                      {(postType === 'image' || postType === 'video') && (
+                      {(postType === "image" || postType === "video") && (
                         <div className="space-y-2">
                           <Label htmlFor="file">
-                            {postType === 'image' ? 'Upload Image' : 'Upload Video'}
+                            {postType === "image"
+                              ? "Upload Image"
+                              : "Upload Video"}
                           </Label>
                           <div className="border-2 border-dashed border-border rounded-lg p-6">
                             {!postFile ? (
@@ -435,21 +472,23 @@ export default function CreatorProfile() {
                                 <Input
                                   id="file"
                                   type="file"
-                                  accept={postType === 'image' ? 'image/*' : 'video/*'}
+                                  accept={
+                                    postType === "image" ? "image/*" : "video/*"
+                                  }
                                   onChange={handleFileChange}
                                   className="max-w-xs"
                                 />
                               </div>
                             ) : (
                               <div className="space-y-2">
-                                {postType === 'image' && filePreview && (
+                                {postType === "image" && filePreview && (
                                   <img
                                     src={filePreview}
                                     alt="Preview"
                                     className="max-w-full h-32 object-cover rounded mx-auto"
                                   />
                                 )}
-                                {postType === 'video' && filePreview && (
+                                {postType === "video" && filePreview && (
                                   <video
                                     src={filePreview}
                                     controls
@@ -480,17 +519,22 @@ export default function CreatorProfile() {
 
                       {/* Required Tokens */}
                       <div className="space-y-2">
-                        <Label htmlFor="requiredTokens">Required Tokens to View</Label>
+                        <Label htmlFor="requiredTokens">
+                          Required Tokens to View
+                        </Label>
                         <Input
                           id="requiredTokens"
                           type="number"
                           placeholder="0"
                           value={postRequiredTokens}
-                          onChange={(e) => setPostRequiredTokens(e.target.value)}
+                          onChange={(e) =>
+                            setPostRequiredTokens(e.target.value)
+                          }
                           min="0"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Set to 0 for public posts, or specify tokens required to view
+                          Set to 0 for public posts, or specify tokens required
+                          to view
                         </p>
                       </div>
 
@@ -526,23 +570,39 @@ export default function CreatorProfile() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
                 >
-                  <Card className={`glass-card ${!canViewPost(post) ? 'opacity-60' : ''}`}>
+                  <Card
+                    className={`glass-card ${
+                      !canViewPost(post) ? "opacity-60" : ""
+                    }`}
+                  >
                     <CardHeader className="pb-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          {post.type === 'text' && <FileText className="h-4 w-4 text-blue-500" />}
-                          {post.type === 'image' && <ImageIcon className="h-4 w-4 text-green-500" />}
-                          {post.type === 'video' && <Video className="h-4 w-4 text-purple-500" />}
+                          {post.type === "text" && (
+                            <FileText className="h-4 w-4 text-blue-500" />
+                          )}
+                          {post.type === "image" && (
+                            <ImageIcon className="h-4 w-4 text-green-500" />
+                          )}
+                          {post.type === "video" && (
+                            <Video className="h-4 w-4 text-purple-500" />
+                          )}
                           <span className="text-sm text-muted-foreground">
                             {post.createdAt.toLocaleDateString()}
                           </span>
                         </div>
                         {post.requiredTokens > 0 && (
-                          <Badge variant={canViewPost(post) ? "default" : "destructive"}>
+                          <Badge
+                            variant={
+                              canViewPost(post) ? "default" : "destructive"
+                            }
+                          >
                             {canViewPost(post) ? (
                               `${post.requiredTokens} tokens required`
                             ) : (
-                              <><Lock className="h-3 w-3 mr-1" /> Locked</>
+                              <>
+                                <Lock className="h-3 w-3 mr-1" /> Locked
+                              </>
                             )}
                           </Badge>
                         )}
@@ -553,16 +613,18 @@ export default function CreatorProfile() {
                         <div className="space-y-4">
                           <p>{post.content}</p>
                           {post.imageUrl && (
-                            <img 
-                              src={post.imageUrl} 
-                              alt="Post content" 
+                            <img
+                              src={post.imageUrl}
+                              alt="Post content"
                               className="rounded-lg w-full max-h-64 object-cover"
                             />
                           )}
                           {post.videoUrl && (
                             <div className="bg-gradient-card rounded-lg p-4 text-center">
                               <Video className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                              <p className="text-sm text-muted-foreground">Video content available</p>
+                              <p className="text-sm text-muted-foreground">
+                                Video content available
+                              </p>
                             </div>
                           )}
                         </div>
@@ -570,7 +632,8 @@ export default function CreatorProfile() {
                         <div className="text-center py-8">
                           <Lock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                           <p className="text-muted-foreground">
-                            Hold at least {post.requiredTokens} tokens to view this content
+                            Hold at least {post.requiredTokens} tokens to view
+                            this content
                           </p>
                           <p className="text-sm text-muted-foreground mt-1">
                             You currently have {userBalance} tokens
