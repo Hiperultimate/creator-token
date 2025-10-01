@@ -14,7 +14,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
-import { useAnchor } from "@/hooks/useAnchor";
 import { Creator, Post } from "@/types/anchor";
 import {
   Users,
@@ -85,10 +84,9 @@ export default function CreatorProfile() {
   const { creatorId } = useParams<{ creatorId: string }>();
   const { user, isAuthenticated } = useAuth();
   const { publicKey: userAddress } = useWallet();
-  const { getBuyingCostQuery } = useCreatorTokenProgramFns({
+  const { buyTokenMutation, sellTokenMutation, useBuyingCostQuery , useSellingReturnQuery } = useCreatorTokenProgramFns({
     account: userAddress,
   });
-  const { buyToken, sellToken, getBuyingCost, getSellingReturn } = useAnchor();
   const navigate = useNavigate();
 
   const [creator, setCreator] = useState<Creator | null>(mockCreator);
@@ -96,9 +94,13 @@ export default function CreatorProfile() {
   const [userBalance, setUserBalance] = useState(75); // Mock user token balance
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
+  
   const { data: buyingCost, isLoading: isBuyingCostLoading } =
-    getBuyingCostQuery(!isNaN(Number(buyAmount)) ? Number(buyAmount) : 0);
-  const [sellingReturn, setSellingReturn] = useState(0);
+    useBuyingCostQuery(!isNaN(Number(buyAmount)) ? Number(buyAmount) : 0);
+  
+  const { data: sellingReturn, isLoading: isSellingCostLoading } =
+    useSellingReturnQuery(!isNaN(Number(sellAmount)) ? Number(sellAmount) : 0);
+  
   const [showCreatePost, setShowCreatePost] = useState(false);
 
   // Create post form state
@@ -110,20 +112,11 @@ export default function CreatorProfile() {
 
   const isOwnProfile = user?.creatorId === creatorId;
 
-  useEffect(() => {
-    // Calculate selling return when amount changes
-    if (sellAmount && !isNaN(Number(sellAmount))) {
-      getSellingReturn(Number(sellAmount)).then(setSellingReturn);
-    } else {
-      setSellingReturn(0);
-    }
-  }, [sellAmount, getSellingReturn]);
-
   const handleBuyTokens = async () => {
     if (!buyAmount || !isAuthenticated) return;
 
     try {
-      await buyToken(Number(buyAmount));
+      await buyTokenMutation.mutateAsync({ buyTokenAmount:  Number(buyAmount)});
       setUserBalance((prev) => prev + Number(buyAmount));
       setBuyAmount("");
       // Show success toast
@@ -137,7 +130,7 @@ export default function CreatorProfile() {
     if (!sellAmount || !isAuthenticated) return;
 
     try {
-      await sellToken(Number(sellAmount));
+      await sellTokenMutation.mutateAsync({ sellTokenAmount : Number(sellAmount)});
       setUserBalance((prev) => prev - Number(sellAmount));
       setSellAmount("");
       // Show success toast
@@ -321,12 +314,12 @@ export default function CreatorProfile() {
                         Buy
                       </Button>
                     </div>
-                    {buyingCost && (
-                      <p className="text-xs text-muted-foreground">
-                        {isBuyingCostLoading && <span>Price loading...</span>}
-                        {!isBuyingCostLoading && <span> Cost: {buyingCost.toFixed(4)} SOL</span>}
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {isBuyingCostLoading && <span>Price loading...</span>}
+                      {!isBuyingCostLoading && buyingCost && (
+                        <span> Cost: {buyingCost.toFixed(4)} SOL</span>
+                      )}
+                    </p>
                   </div>
 
                   {/* Sell Section */}
@@ -354,11 +347,12 @@ export default function CreatorProfile() {
                         Sell
                       </Button>
                     </div>
-                    {sellingReturn > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Return: {sellingReturn.toFixed(4)} SOL
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {isSellingCostLoading && <span>Price loading...</span>}
+                      {!isSellingCostLoading && sellingReturn && (
+                        <span> Cost: {sellingReturn.toFixed(4)} SOL</span>
+                      )}
+                    </p>
                   </div>
                 </CardContent>
               </Card>

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Creator } from "@/types/anchor";
 import { Search, TrendingUp, Users, Star } from "lucide-react";
 import { motion } from "framer-motion";
-import { checkUserBalance, requestAirdrop } from "@/hooks/useAnchor";
+import { checkUserBalance, requestAirdrop } from "@/lib/solana-helpers";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 

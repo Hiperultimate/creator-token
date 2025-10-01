@@ -1,13 +1,11 @@
 import { PublicKey } from "@solana/web3.js";
 import useCreatorTokenProgram from "./useCreatorTokenProgram";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getUserIdentity } from "./useAnchor";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { getUserIdentity } from "@/lib/solana-helpers";
 import { type BN } from "@coral-xyz/anchor";
 
 function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
   const { program } = useCreatorTokenProgram();
-  const { connection } = useConnection();
 
   const createIdentityMutation = useMutation({
     mutationKey: ["create-identity"],
@@ -26,7 +24,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
         .rpc(),
     onSuccess: () => {
       console.log("Perform promised success toast logic here");
-      getUserIdentity(account, program, connection);
+      getUserIdentity(account, program);
     },
     onError: () => {
       console.log("Perform promised error toast logic here");
@@ -63,7 +61,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
 
   const buyTokenMutation = useMutation({
     mutationKey: ["buy-creator-token"],
-    mutationFn: ({}: {}) => {
+    mutationFn: ({ buyTokenAmount }: { buyTokenAmount: number }) => {
       // return await program.methods.buyCreatorToken(tokensToBuy).rpc();
       return null;
     },
@@ -77,7 +75,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
 
   const sellTokenMutation = useMutation({
     mutationKey: ["sell-creator-token"],
-    mutationFn: ({}: {}) => {
+    mutationFn: ({ sellTokenAmount } : {sellTokenAmount : number}) => {
       // return await program.methods.sellCreatorToken(tokensToBuy).rpc();
       return null;
     },
@@ -89,7 +87,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
     },
   });
 
-  const getBuyingCostQuery = (tokensToBuy: number) => {
+  const useBuyingCostQuery = (tokensToBuy: number) => {
     // debounce input before querying
     // const debouncedTokens = useDebounce(tokensToBuy, 500);
     return useQuery({
@@ -102,14 +100,15 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
     });
   };
 
-  const getSellingReturnQuery = ({ tokensToSell }: { tokensToSell: number }) =>
+  const useSellingReturnQuery = (tokensToSell: number) =>
     useQuery({
-      queryKey: ["get-selling-cost"],
-      queryFn: () => {
+      queryKey: ["get-selling-cost", tokensToSell],
+      queryFn: async () => {
         // const result = await program.methods.getSellingReturnPrice(tokensToSell).view();
-        // return result.toNumber();
+
         return tokensToSell * 0.9; // Placeholder
       },
+      enabled: tokensToSell > 0,
     });
 
   return {
@@ -117,8 +116,8 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
     createCreatorTokenMutation,
     buyTokenMutation,
     sellTokenMutation,
-    getBuyingCostQuery,
-    getSellingReturnQuery,
+    useBuyingCostQuery,
+    useSellingReturnQuery,
   };
 }
 
