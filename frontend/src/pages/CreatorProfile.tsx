@@ -31,13 +31,20 @@ import {
 import { motion } from "framer-motion";
 import useCreatorTokenProgramFns from "@/hooks/useCreatorTokenProgramFns";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+
 
 // Mock creator data
 const mockCreator: Creator = {
-  pubkey: { toBase58: () => "Creator1" } as any,
+  pubkey: {
+    toBase58: () => "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
+  } as any,
   identity: {
-    creator: { toBase58: () => "Creator1" } as any,
-    creatorName: "Alice Johnson",
+    creator: {
+      toBase58: () => "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
+    } as any,
+    creatorName: "Hiperultimate",
     proofUrl:
       "Crypto artist and NFT creator building the future of digital art. Sharing exclusive insights, tutorials, and behind-the-scenes content.",
   },
@@ -50,7 +57,7 @@ const mockCreator: Creator = {
 const mockPosts: Post[] = [
   {
     id: "1",
-    creatorId: "Creator1",
+    creatorId: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
     content:
       "Just finished working on my latest NFT collection! Here's a sneak peek at the concept art.",
     imageUrl:
@@ -61,7 +68,7 @@ const mockPosts: Post[] = [
   },
   {
     id: "2",
-    creatorId: "Creator1",
+    creatorId: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
     content:
       "Exclusive: My complete guide to creating generative art with AI. This tutorial covers everything from prompting to minting.",
     videoUrl: "https://example.com/video1.mp4",
@@ -71,7 +78,7 @@ const mockPosts: Post[] = [
   },
   {
     id: "3",
-    creatorId: "Creator1",
+    creatorId: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
     content:
       "Market analysis: Why I think the next bull run will be driven by utility tokens rather than meme coins.",
     requiredTokens: 25,
@@ -84,7 +91,12 @@ export default function CreatorProfile() {
   const { creatorId } = useParams<{ creatorId: string }>();
   const { user, isAuthenticated } = useAuth();
   const { publicKey: userAddress } = useWallet();
-  const { buyTokenMutation, sellTokenMutation, useBuyingCostQuery , useSellingReturnQuery } = useCreatorTokenProgramFns({
+  const {
+    buyTokenMutation,
+    sellTokenMutation,
+    useBuyingCostQuery,
+    useSellingReturnQuery,
+  } = useCreatorTokenProgramFns({
     account: userAddress,
   });
   const navigate = useNavigate();
@@ -94,13 +106,16 @@ export default function CreatorProfile() {
   const [userBalance, setUserBalance] = useState(75); // Mock user token balance
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
-  
+
   const { data: buyingCost, isLoading: isBuyingCostLoading } =
-    useBuyingCostQuery(!isNaN(Number(buyAmount)) ? Number(buyAmount) : 0);
-  
+    useBuyingCostQuery(
+      !isNaN(Number(buyAmount)) ? new BN(Number(buyAmount)) : new BN(0),
+      new PublicKey(mockCreator.pubkey.toBase58())
+    );
+
   const { data: sellingReturn, isLoading: isSellingCostLoading } =
     useSellingReturnQuery(!isNaN(Number(sellAmount)) ? Number(sellAmount) : 0);
-  
+
   const [showCreatePost, setShowCreatePost] = useState(false);
 
   // Create post form state
@@ -116,7 +131,9 @@ export default function CreatorProfile() {
     if (!buyAmount || !isAuthenticated) return;
 
     try {
-      await buyTokenMutation.mutateAsync({ buyTokenAmount:  Number(buyAmount)});
+      // TODO : Fetch token details, store it in some state, then pass the decimal here. Currently hardcoded
+      const tx = await buyTokenMutation.mutateAsync({ buyTokenAmount: new BN(Number(buyAmount)), creatorAddress : new PublicKey(mockCreator.pubkey.toBase58()), tokenDecimal : 6 });
+      console.log("User bought token :", tx);
       setUserBalance((prev) => prev + Number(buyAmount));
       setBuyAmount("");
       // Show success toast
@@ -130,7 +147,9 @@ export default function CreatorProfile() {
     if (!sellAmount || !isAuthenticated) return;
 
     try {
-      await sellTokenMutation.mutateAsync({ sellTokenAmount : Number(sellAmount)});
+      await sellTokenMutation.mutateAsync({
+        sellTokenAmount: Number(sellAmount),
+      });
       setUserBalance((prev) => prev - Number(sellAmount));
       setSellAmount("");
       // Show success toast
@@ -317,7 +336,7 @@ export default function CreatorProfile() {
                     <p className="text-xs text-muted-foreground">
                       {isBuyingCostLoading && <span>Price loading...</span>}
                       {!isBuyingCostLoading && buyingCost && (
-                        <span> Cost: {buyingCost.toFixed(4)} SOL</span>
+                        <span> Cost: {(buyingCost.toNumber() / LAMPORTS_PER_SOL).toFixed(4)} SOL</span>
                       )}
                     </p>
                   </div>

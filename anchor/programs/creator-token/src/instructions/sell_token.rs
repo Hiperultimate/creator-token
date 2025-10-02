@@ -57,7 +57,8 @@ pub struct SellToken<'info> {
         seeds=[b"vault", identity_proof.key().as_ref()],
         bump=creator_token.vault_bump
     )]
-    pub vault : SystemAccount<'info>,
+    /// CHECK: This PDA is only used as a SOL vault (holds lamports)
+    pub vault : AccountInfo<'info>,
 
     pub token_program : Interface<'info, TokenInterface>,
     pub system_program : Program<'info, System>
@@ -99,9 +100,9 @@ pub fn handler(ctx: Context<SellToken>, tokens_to_sell: u64) -> Result<()> {
         to: ctx.accounts.seller.to_account_info()
     };
     let identity_proof_key = ctx.accounts.identity_proof.key();
-    let transfer_signing_seeds: &[&[&[u8]]] = &[&[b"vault", identity_proof_key.as_ref(), &[ctx.accounts.creator_token.vault_bump]]];
-    let cpi_context_transfer = CpiContext::new_with_signer(ctx.accounts.system_program.to_account_info(), transfer_accounts,transfer_signing_seeds);
-    transfer( cpi_context_transfer , token_cost)
+    let transfer_signing_seeds: &[&[&[u8]]] = &[ &[ b"vault", identity_proof_key.as_ref(), &[ctx.accounts.creator_token.vault_bump] ] ];
+    let cpi_context_transfer = CpiContext::new_with_signer(ctx.accounts.system_program.to_account_info(), transfer_accounts, transfer_signing_seeds);
+    transfer( cpi_context_transfer , token_cost)?;
 
-    // Ok(())
+    Ok(())
 }

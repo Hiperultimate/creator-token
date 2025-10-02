@@ -22,7 +22,8 @@ pub struct BuyToken<'info> {
     pub identity_proof : Account<'info, Identity>,
 
     #[account(mut, seeds=[b"vault", identity_proof.key().as_ref()], bump=creator_token.vault_bump)]
-    pub vault : SystemAccount<'info>,
+    /// CHECK: This PDA is only used as a SOL vault (holds lamports)
+    pub vault : AccountInfo<'info>,
 
     #[account(
         seeds=[b"creator_token", identity_proof.key().as_ref()], 

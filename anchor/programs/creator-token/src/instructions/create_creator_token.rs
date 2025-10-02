@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{ associated_token::AssociatedToken, token_2022::MintTo, token_interface::{self, Mint, TokenAccount, TokenInterface}};
+use anchor_spl::{ associated_token::AssociatedToken, token_interface::{ Mint, TokenAccount, TokenInterface}};
 
 use crate::{Identity, CreatorToken};
 
@@ -46,8 +46,15 @@ pub struct CreateCreatorToken<'info> {
     pub creator_ata: InterfaceAccount<'info, TokenAccount>,
 
     // Create Vault
-    #[account(seeds=[b"vault", identity_proof.key().as_ref()], bump)]
-    pub vault : SystemAccount<'info>,
+    #[account(
+        init, 
+        payer = creator,
+        space = 0, 
+        seeds=[b"vault", identity_proof.key().as_ref()],
+        bump
+    )]
+    /// CHECK: This PDA is only used as a SOL vault (holds lamports)
+    pub vault : AccountInfo<'info>,
 
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program : Program<'info, System>,

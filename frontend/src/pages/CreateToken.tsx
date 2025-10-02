@@ -14,6 +14,7 @@ import useCreatorTokenProgramFns from "@/hooks/useCreatorTokenProgramFns";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { BN } from "@coral-xyz/anchor";
 import { toast as SonnerToast } from "sonner";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 const createTokenSchema = z.object({
   decimals: z.number().min(0).max(9),
@@ -78,8 +79,8 @@ export default function CreateToken() {
 
     setIsLoading(true);
 
-    const basePriceInLamports = new BN(Math.floor(basePrice * 1e9)); // Convert SOL to lamports
-    const slopeInLamports = new BN(Math.floor(slope * 1e9));
+    const basePriceInLamports = new BN(Math.round(basePrice * LAMPORTS_PER_SOL)); // Convert SOL to lamports
+    const slopeInLamports = new BN(Math.round(slope * LAMPORTS_PER_SOL));
     SonnerToast.promise(
       createCreatorTokenMutation.mutateAsync({
         decimals,

@@ -2,7 +2,8 @@ import { PublicKey } from "@solana/web3.js";
 import useCreatorTokenProgram from "./useCreatorTokenProgram";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { getUserIdentity } from "@/lib/solana-helpers";
-import { type BN } from "@coral-xyz/anchor";
+import { BN } from "@coral-xyz/anchor";
+import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
 function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
   const { program } = useCreatorTokenProgram();
@@ -33,7 +34,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
 
   const createCreatorTokenMutation = useMutation({
     mutationKey: ["create-creator-token"],
-    mutationFn: ({
+    mutationFn: async ({
       decimals,
       basePriceInLamports,
       slopeInLamports,
@@ -42,14 +43,17 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       basePriceInLamports: BN;
       slopeInLamports: BN;
     }) => {
-      // return program.methods.createCreatorToken(decimals, basePrice, slope).rpc();
-      console.log(
-        "Creating token for with these details : ",
-        decimals,
-        basePriceInLamports,
-        slopeInLamports
+      return (
+        program.methods
+          .createCreatorToken(decimals, basePriceInLamports, slopeInLamports)
+          .accounts({
+            creator: account,
+            tokenProgram: TOKEN_2022_PROGRAM_ID,
+          })
+          // .signers([creator])
+          .rpc()
       );
-      return null;
+      // return null;
     },
     onSuccess: () => {
       console.log("Creator token created successfully");
@@ -61,9 +65,26 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
 
   const buyTokenMutation = useMutation({
     mutationKey: ["buy-creator-token"],
-    mutationFn: ({ buyTokenAmount }: { buyTokenAmount: number }) => {
-      // return await program.methods.buyCreatorToken(tokensToBuy).rpc();
-      return null;
+    mutationFn: async ({
+      buyTokenAmount,
+      creatorAddress,
+      tokenDecimal
+    }: {
+      buyTokenAmount: BN;
+      creatorAddress: PublicKey;
+      tokenDecimal: number
+    }) => {
+      const tokenDecimalBN = new BN(tokenDecimal);
+      const buyTokenDecimals = buyTokenAmount.mul(new BN(10).pow(tokenDecimalBN));
+      return program.methods
+        .buyCreatorToken(buyTokenDecimals)
+        .accounts({
+          buyer: account,
+          creator: creatorAddress,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .rpc();
+      // return null;
     },
     onSuccess: () => {
       console.log("Successfully bought creator token");
@@ -75,7 +96,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
 
   const sellTokenMutation = useMutation({
     mutationKey: ["sell-creator-token"],
-    mutationFn: ({ sellTokenAmount } : {sellTokenAmount : number}) => {
+    mutationFn: ({ sellTokenAmount }: { sellTokenAmount: number }) => {
       // return await program.methods.sellCreatorToken(tokensToBuy).rpc();
       return null;
     },
@@ -87,16 +108,26 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
     },
   });
 
-  const useBuyingCostQuery = (tokensToBuy: number) => {
+  const useBuyingCostQuery = (tokensToBuy: BN, creatorAddress: PublicKey) => {
     // debounce input before querying
     // const debouncedTokens = useDebounce(tokensToBuy, 500);
     return useQuery({
-      queryKey: ["get-buying-cost", tokensToBuy],
+      queryKey: ["get-buying-cost", tokensToBuy, creatorAddress],
       queryFn: async () => {
-        // return await program.methods.sellCreatorToken(tokensToBuy).rpc();
-        return tokensToBuy * 0.1;
+        console.log("Checking amt of token : ", tokensToBuy.toNumber());
+        console.log("Checking creatorAddress : ", creatorAddress.toBase58());
+        console.log("Check :", tokensToBuy.toNumber() > 0);
+        const tokenCurrentPrice = await program.methods
+          .getBuyingTokenPrice(tokensToBuy)
+          .accounts({
+            creator: creatorAddress,
+          })
+          .view();
+        console.log("Fetched token price :", tokenCurrentPrice);
+        return tokenCurrentPrice;
+        // return tokensToBuy * 0.1;
       },
-      enabled: tokensToBuy > 0, // only run when input is > 0
+      enabled: tokensToBuy.gt(new BN(0)), // only run when input is > 0
     });
   };
 
