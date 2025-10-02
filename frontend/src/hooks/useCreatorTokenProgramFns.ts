@@ -114,9 +114,6 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
     return useQuery({
       queryKey: ["get-buying-cost", tokensToBuy, creatorAddress],
       queryFn: async () => {
-        console.log("Checking amt of token : ", tokensToBuy.toNumber());
-        console.log("Checking creatorAddress : ", creatorAddress.toBase58());
-        console.log("Check :", tokensToBuy.toNumber() > 0);
         const tokenCurrentPrice = await program.methods
           .getBuyingTokenPrice(tokensToBuy)
           .accounts({

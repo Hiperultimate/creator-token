@@ -33,6 +33,7 @@ import useCreatorTokenProgramFns from "@/hooks/useCreatorTokenProgramFns";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
+import useTokenDetails from "@/hooks/useTokenDetails";
 
 
 // Mock creator data
@@ -107,6 +108,7 @@ export default function CreatorProfile() {
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
 
+  const { data : tokenDetails , isLoading : tokenDetailsLoading } = useTokenDetails(new PublicKey(mockCreator.pubkey.toBase58()));
   const { data: buyingCost, isLoading: isBuyingCostLoading } =
     useBuyingCostQuery(
       !isNaN(Number(buyAmount)) ? new BN(Number(buyAmount)) : new BN(0),
@@ -128,11 +130,10 @@ export default function CreatorProfile() {
   const isOwnProfile = user?.creatorId === creatorId;
 
   const handleBuyTokens = async () => {
-    if (!buyAmount || !isAuthenticated) return;
+    if (!buyAmount || !isAuthenticated || !tokenDetails) return;
 
     try {
-      // TODO : Fetch token details, store it in some state, then pass the decimal here. Currently hardcoded
-      const tx = await buyTokenMutation.mutateAsync({ buyTokenAmount: new BN(Number(buyAmount)), creatorAddress : new PublicKey(mockCreator.pubkey.toBase58()), tokenDecimal : 6 });
+      const tx = await buyTokenMutation.mutateAsync({ buyTokenAmount: new BN(Number(buyAmount)), creatorAddress : new PublicKey(mockCreator.pubkey.toBase58()), tokenDecimal : tokenDetails.decimals });
       console.log("User bought token :", tx);
       setUserBalance((prev) => prev + Number(buyAmount));
       setBuyAmount("");
