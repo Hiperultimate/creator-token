@@ -18,12 +18,16 @@ const useTokenDetails = (ownerAddress : PublicKey) => {
         programId
     );
 
-    const mintDetails = useQuery({
+    const { data : tokenDetails,  ...rest} = useQuery({
         queryKey : ["get-mint", mintPda],
         queryFn: async () => getMint(connection, mintPda, "confirmed", TOKEN_2022_PROGRAM_ID)
     })
 
-    return mintDetails;
+    return {
+        tokenDetails,
+        tokenSupply : tokenDetails.supply / (10n ** BigInt(tokenDetails.decimals)),
+        ...rest
+    };
 }
 
 export default useTokenDetails;

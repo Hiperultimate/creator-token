@@ -34,6 +34,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import useTokenDetails from "@/hooks/useTokenDetails";
+import { Skeleton } from "@/components/ui/skeleton";
 
 
 // Mock creator data
@@ -108,7 +109,7 @@ export default function CreatorProfile() {
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
 
-  const { data : tokenDetails , isLoading : tokenDetailsLoading } = useTokenDetails(new PublicKey(mockCreator.pubkey.toBase58()));
+  const { tokenDetails , tokenSupply,  isLoading : tokenDetailsLoading } = useTokenDetails(new PublicKey(mockCreator.pubkey.toBase58()));
   const { data: buyingCost, isLoading: isBuyingCostLoading } =
     useBuyingCostQuery(
       !isNaN(Number(buyAmount)) ? new BN(Number(buyAmount)) : new BN(0),
@@ -286,14 +287,18 @@ export default function CreatorProfile() {
                       Current Price
                     </div>
                   </div>
-                  <div>
-                    <div className="text-2xl font-bold animate-counter">
-                      {creator.totalSupply?.toLocaleString()}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Total Supply
-                    </div>
-                  </div>
+                   <div>
+                     <div className="text-2xl font-bold animate-counter flex flex-col items-center">
+                       {tokenDetailsLoading ? (
+                         <Skeleton className="h-8 w-full max-w-[10rem]" />
+                       ) : (
+                         tokenSupply.toLocaleString()
+                       )}
+                     </div>
+                     <div className="text-sm text-muted-foreground">
+                       Total Supply
+                     </div>
+                   </div>
                   <div>
                     <div className="text-2xl font-bold text-accent animate-counter">
                       {creator.holdersCount}
@@ -346,7 +351,14 @@ export default function CreatorProfile() {
                     <p className="text-xs text-muted-foreground">
                       {isBuyingCostLoading && <span>Price loading...</span>}
                       {!isBuyingCostLoading && buyingCost && (
-                        <span> Cost: {(buyingCost.toNumber() / LAMPORTS_PER_SOL).toFixed(4)} SOL</span>
+                        <span>
+                          {" "}
+                          Cost:{" "}
+                          {(buyingCost.toNumber() / LAMPORTS_PER_SOL).toFixed(
+                            4
+                          )}{" "}
+                          SOL
+                        </span>
                       )}
                     </p>
                   </div>
@@ -379,7 +391,14 @@ export default function CreatorProfile() {
                     <p className="text-xs text-muted-foreground">
                       {isSellingCostLoading && <span>Price loading...</span>}
                       {!isSellingCostLoading && sellingReturn && (
-                        <span> Cost: {(sellingReturn.toNumber() / LAMPORTS_PER_SOL).toFixed(4)} SOL</span>
+                        <span>
+                          {" "}
+                          Cost:{" "}
+                          {(
+                            sellingReturn.toNumber() / LAMPORTS_PER_SOL
+                          ).toFixed(4)}{" "}
+                          SOL
+                        </span>
                       )}
                     </p>
                   </div>
