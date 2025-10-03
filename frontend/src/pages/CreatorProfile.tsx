@@ -35,7 +35,7 @@ import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import useTokenDetails from "@/hooks/useTokenDetails";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { useQueryClient } from "@tanstack/react-query";
 
 // Mock creator data
 const mockCreator: Creator = {
@@ -90,6 +90,7 @@ const mockPosts: Post[] = [
 ];
 
 export default function CreatorProfile() {
+  const queryClient = useQueryClient();
   const { creatorId } = useParams<{ creatorId: string }>();
   const { user, isAuthenticated } = useAuth();
   const { publicKey: userAddress } = useWallet();
@@ -109,7 +110,12 @@ export default function CreatorProfile() {
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
 
-  const { tokenDetails , tokenSupply,  isLoading : tokenDetailsLoading } = useTokenDetails(new PublicKey(mockCreator.pubkey.toBase58()));
+  const {
+    tokenDetails,
+    tokenSupply,
+    currentTokenPrice,
+    isLoading: tokenDetailsLoading,
+  } = useTokenDetails(new PublicKey(mockCreator.pubkey.toBase58()));
   const { data: buyingCost, isLoading: isBuyingCostLoading } =
     useBuyingCostQuery(
       !isNaN(Number(buyAmount)) ? new BN(Number(buyAmount)) : new BN(0),
@@ -138,14 +144,14 @@ export default function CreatorProfile() {
 
     try {
       const tx = await buyTokenMutation.mutateAsync({
-        buyTokenAmount: new BN(Number(buyAmount)), 
-        creatorAddress: new PublicKey(mockCreator.pubkey.toBase58()), 
-        tokenDecimal: tokenDetails.decimals
+        buyTokenAmount: new BN(Number(buyAmount)),
+        creatorAddress: new PublicKey(mockCreator.pubkey.toBase58()),
+        tokenDecimal: tokenDetails.decimals,
       });
+      queryClient.invalidateQueries({ queryKey: ["token-details"] });
       console.log("User bought token :", tx);
       setUserBalance((prev) => prev + Number(buyAmount));
       setBuyAmount("");
-      // Show success toast
     } catch (error) {
       console.error("Error buying tokens:", error);
       // Show error toast
@@ -161,9 +167,9 @@ export default function CreatorProfile() {
         creatorAddress: new PublicKey(mockCreator.pubkey.toBase58()),
         tokenDecimal: tokenDetails.decimals,
       });
+      queryClient.invalidateQueries({ queryKey: ["token-details"] });
       setUserBalance((prev) => prev - Number(sellAmount));
       setSellAmount("");
-      // Show success toast
     } catch (error) {
       console.error("Error selling tokens:", error);
       // Show error toast
@@ -280,25 +286,29 @@ export default function CreatorProfile() {
 
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <div className="text-2xl font-bold text-success animate-counter">
-                      {creator.currentPrice} SOL
+                    <div className="text-2xl font-bold text-success animate-counter flex flex-col items-center">
+                      {tokenDetailsLoading ? (
+                        <Skeleton className="h-8 w-full max-w-[10rem]" />
+                      ) : (
+                        <>{currentTokenPrice} SOL</>
+                      )}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       Current Price
                     </div>
                   </div>
-                   <div>
-                     <div className="text-2xl font-bold animate-counter flex flex-col items-center">
-                       {tokenDetailsLoading ? (
-                         <Skeleton className="h-8 w-full max-w-[10rem]" />
-                       ) : (
-                         tokenSupply.toLocaleString()
-                       )}
-                     </div>
-                     <div className="text-sm text-muted-foreground">
-                       Total Supply
-                     </div>
-                   </div>
+                  <div>
+                    <div className="text-2xl font-bold animate-counter flex flex-col items-center">
+                      {tokenDetailsLoading ? (
+                        <Skeleton className="h-8 w-full max-w-[10re m]" />
+                      ) : (
+                        tokenSupply.toLocaleString()
+                      )}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Total Supply
+                    </div>
+                  </div>
                   <div>
                     <div className="text-2xl font-bold text-accent animate-counter">
                       {creator.holdersCount}
@@ -354,9 +364,9 @@ export default function CreatorProfile() {
                         <span>
                           {" "}
                           Cost:{" "}
-                          {(buyingCost.toNumber() / LAMPORTS_PER_SOL).toFixed(
-                            4
-                          )}{" "}
+                          {(
+                            new BN(buyingCost).toNumber() / LAMPORTS_PER_SOL
+                          ).toFixed(4)}{" "}
                           SOL
                         </span>
                       )}

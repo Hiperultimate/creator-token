@@ -1,4 +1,4 @@
-import { PublicKey } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import useCreatorTokenProgram from "./useCreatorTokenProgram";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { getMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
@@ -32,16 +32,17 @@ const useTokenDetails = (ownerAddress: PublicKey) => {
         }),
       ]);
         
+      const solPrice = Number(oneTokenCost) / LAMPORTS_PER_SOL;
       return {
         tokenDetails: tokenDetails,
-        currentTokenPrice: oneTokenCost,
+        currentTokenPrice: solPrice,
         tokenSupply:
           tokenDetails.supply / 10n ** BigInt(tokenDetails.decimals),
       };
     },
   });
 
-
+  
   return {
     ...data,
     ...rest,
