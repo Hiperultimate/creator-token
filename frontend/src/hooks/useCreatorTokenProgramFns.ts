@@ -1,7 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
 import useCreatorTokenProgram from "./useCreatorTokenProgram";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getUserIdentity } from "@/lib/solana-helpers";
+import { getTokenPrice, getUserIdentity } from "@/lib/solana-helpers";
 import { BN } from "@coral-xyz/anchor";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
@@ -130,15 +130,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
     // const debouncedTokens = useDebounce(tokensToBuy, 500);
     return useQuery({
       queryKey: ["get-buying-cost", tokensToBuy, creatorAddress],
-      queryFn: async () => {
-        const tokenCurrentPrice = await program.methods
-          .getBuyingTokenPrice(tokensToBuy)
-          .accounts({
-            creator: creatorAddress,
-          })
-          .view();
-        return tokenCurrentPrice;
-      },
+      queryFn: async () => getTokenPrice({program, creatorAddress, tokensToBuy}),
       enabled: tokensToBuy.gt(new BN(0)), // only run when input is > 0
     });
   };

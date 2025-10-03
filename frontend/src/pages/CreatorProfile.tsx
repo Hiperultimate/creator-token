@@ -105,7 +105,7 @@ export default function CreatorProfile() {
 
   const [creator, setCreator] = useState<Creator | null>(mockCreator);
   const [posts, setPosts] = useState<Post[]>(mockPosts);
-  const [userBalance, setUserBalance] = useState(75); // Mock user token balance
+  const [userBalance, setUserBalance] = useState(0);
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
 

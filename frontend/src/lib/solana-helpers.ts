@@ -1,5 +1,6 @@
 import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { CreatorToken } from "../../../anchor/creator-token-exports";
+import { BN } from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 
 export async function checkConfirmTransaction(
@@ -46,7 +47,7 @@ export const checkUserBalance = async (
 
 export const getUserIdentity = async (
   address: PublicKey,
-  program: Program<CreatorToken>,
+  program: Program<CreatorToken>
 ) => {
   const [identityPda] = PublicKey.findProgramAddressSync(
     [Buffer.from("identity"), address.toBuffer()],
@@ -55,4 +56,22 @@ export const getUserIdentity = async (
   const userIdentity = await program.account.identity.fetch(identityPda);
   console.log("Identity stored on blockchain : ", userIdentity);
   return userIdentity;
+};
+
+export const getTokenPrice = async ({
+  program,
+  tokensToBuy,
+  creatorAddress,
+}: {
+  program: Program<CreatorToken>;
+  tokensToBuy: BN;
+  creatorAddress: PublicKey;
+}) : Promise<bigint> => {
+  const tokenCurrentPrice = await program.methods
+    .getBuyingTokenPrice(tokensToBuy)
+    .accounts({
+      creator: creatorAddress,
+    })
+    .view();
+  return tokenCurrentPrice;
 };
