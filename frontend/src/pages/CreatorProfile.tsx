@@ -116,7 +116,10 @@ export default function CreatorProfile() {
     );
 
   const { data: sellingReturn, isLoading: isSellingCostLoading } =
-    useSellingReturnQuery(!isNaN(Number(sellAmount)) ? Number(sellAmount) : 0);
+    useSellingReturnQuery(
+      !isNaN(Number(sellAmount)) ? new BN(Number(sellAmount)) : new BN(0),
+      new PublicKey(mockCreator.pubkey.toBase58())
+    );
 
   const [showCreatePost, setShowCreatePost] = useState(false);
 
@@ -133,7 +136,11 @@ export default function CreatorProfile() {
     if (!buyAmount || !isAuthenticated || !tokenDetails) return;
 
     try {
-      const tx = await buyTokenMutation.mutateAsync({ buyTokenAmount: new BN(Number(buyAmount)), creatorAddress : new PublicKey(mockCreator.pubkey.toBase58()), tokenDecimal : tokenDetails.decimals });
+      const tx = await buyTokenMutation.mutateAsync({
+        buyTokenAmount: new BN(Number(buyAmount)), 
+        creatorAddress: new PublicKey(mockCreator.pubkey.toBase58()), 
+        tokenDecimal: tokenDetails.decimals
+      });
       console.log("User bought token :", tx);
       setUserBalance((prev) => prev + Number(buyAmount));
       setBuyAmount("");
@@ -149,7 +156,9 @@ export default function CreatorProfile() {
 
     try {
       await sellTokenMutation.mutateAsync({
-        sellTokenAmount: Number(sellAmount),
+        sellTokenAmount: new BN(Number(sellAmount)),
+        creatorAddress: new PublicKey(mockCreator.pubkey.toBase58()),
+        tokenDecimal: tokenDetails.decimals,
       });
       setUserBalance((prev) => prev - Number(sellAmount));
       setSellAmount("");
@@ -370,7 +379,7 @@ export default function CreatorProfile() {
                     <p className="text-xs text-muted-foreground">
                       {isSellingCostLoading && <span>Price loading...</span>}
                       {!isSellingCostLoading && sellingReturn && (
-                        <span> Cost: {sellingReturn.toFixed(4)} SOL</span>
+                        <span> Cost: {(sellingReturn.toNumber() / LAMPORTS_PER_SOL).toFixed(4)} SOL</span>
                       )}
                     </p>
                   </div>

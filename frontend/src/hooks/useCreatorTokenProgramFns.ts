@@ -50,10 +50,8 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
             creator: account,
             tokenProgram: TOKEN_2022_PROGRAM_ID,
           })
-          // .signers([creator])
           .rpc()
       );
-      // return null;
     },
     onSuccess: () => {
       console.log("Creator token created successfully");
@@ -68,14 +66,16 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
     mutationFn: async ({
       buyTokenAmount,
       creatorAddress,
-      tokenDecimal
+      tokenDecimal,
     }: {
       buyTokenAmount: BN;
       creatorAddress: PublicKey;
-      tokenDecimal: number
+      tokenDecimal: number;
     }) => {
       const tokenDecimalBN = new BN(tokenDecimal);
-      const buyTokenDecimals = buyTokenAmount.mul(new BN(10).pow(tokenDecimalBN));
+      const buyTokenDecimals = buyTokenAmount.mul(
+        new BN(10).pow(tokenDecimalBN)
+      );
       return program.methods
         .buyCreatorToken(buyTokenDecimals)
         .accounts({
@@ -84,7 +84,6 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
         .rpc();
-      // return null;
     },
     onSuccess: () => {
       console.log("Successfully bought creator token");
@@ -96,9 +95,27 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
 
   const sellTokenMutation = useMutation({
     mutationKey: ["sell-creator-token"],
-    mutationFn: ({ sellTokenAmount }: { sellTokenAmount: number }) => {
-      // return await program.methods.sellCreatorToken(tokensToBuy).rpc();
-      return null;
+    mutationFn: ({
+      sellTokenAmount,
+      creatorAddress,
+      tokenDecimal,
+    }: {
+      sellTokenAmount: BN;
+      creatorAddress: PublicKey;
+      tokenDecimal: number;
+      }) => {
+      const tokenDecimalBN = new BN(tokenDecimal);
+      const buyTokenDecimals = sellTokenAmount.mul(
+        new BN(10).pow(tokenDecimalBN)
+      );
+      return program.methods
+        .sellCreatorToken(buyTokenDecimals)
+        .accounts({
+          seller: account,
+          creator: creatorAddress,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .rpc();
     },
     onSuccess: () => {
       console.log("Successfully sold creator token");
@@ -120,23 +137,24 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
             creator: creatorAddress,
           })
           .view();
-        console.log("Fetched token price :", tokenCurrentPrice);
         return tokenCurrentPrice;
-        // return tokensToBuy * 0.1;
       },
       enabled: tokensToBuy.gt(new BN(0)), // only run when input is > 0
     });
   };
 
-  const useSellingReturnQuery = (tokensToSell: number) =>
+  const useSellingReturnQuery = (tokensToSell: BN, creatorAddress: PublicKey) =>
     useQuery({
-      queryKey: ["get-selling-cost", tokensToSell],
+      queryKey: ["get-selling-cost", tokensToSell, creatorAddress],
       queryFn: async () => {
-        // const result = await program.methods.getSellingReturnPrice(tokensToSell).view();
-
-        return tokensToSell * 0.9; // Placeholder
+        return program.methods
+          .getSellingReturnPrice(tokensToSell)
+          .accounts({
+            creator: creatorAddress,
+          })
+          .view();
       },
-      enabled: tokensToSell > 0,
+      enabled: tokensToSell.gt(new BN(0)),
     });
 
   return {
