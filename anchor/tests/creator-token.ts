@@ -10,7 +10,13 @@ import {
   Mint,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
-import { airDropSOLAmount, buyCreatorToken, checkConfirmTransaction, getBuyingPriceForToken, getSellingPriceForToken } from "./helper-fns";
+import {
+  airDropSOLAmount,
+  buyCreatorToken,
+  checkConfirmTransaction,
+  getBuyingPriceForToken,
+  getSellingPriceForToken,
+} from "./helper-fns";
 
 describe("creator-token", () => {
   // Configure the client to use the local cluster.
@@ -269,7 +275,7 @@ describe("creator-token", () => {
     expect(fanATABalance.value.amount).eq(tokenToBuy.toString());
 
     const lamportsNeeded = await program.methods
-      .getSellingReturnPrice(tokenToBuy)
+      .getSellingReturnPrice(new anchor.BN(amtOfTokens))
       .accounts({
         creator: creator.publicKey,
       })
@@ -318,7 +324,7 @@ describe("creator-token", () => {
       .signers([fan])
       .rpc();
 
-    console.log("Fan successfully sold tokens : ", sellTx);
+    // console.log("Fan successfully sold tokens : ", sellTx);
 
     await checkConfirmTransaction(provider, sellTx);
 
@@ -332,7 +338,9 @@ describe("creator-token", () => {
       fan.publicKey,
       "confirmed"
     );
+    // console.log("Checking vault balance :", vaultBalanceBefore, vaultBalanceAfter);
     // console.log("Checking fan balance :", fanBalanceBefore, fanBalanceAfter);
+
     expect(fanBalanceAfter - fanBalanceBefore).eq(
       vaultBalanceBefore - vaultBalanceAfter
     );
@@ -355,7 +363,12 @@ describe("creator-token", () => {
     const amtOfTokens = 10;
 
     // Check buy price of fan1 to buy tokens
-    const fan1QuotedBuyingPrice = await getBuyingPriceForToken(program, amtOfTokens, creatorToken.decimals, creator.publicKey);
+    const fan1QuotedBuyingPrice = await getBuyingPriceForToken(
+      program,
+      amtOfTokens,
+      creatorToken.decimals,
+      creator.publicKey
+    );
     const { buyCreatorTokenTx: fan1BuyTokenTx, tokenBought: tokenBoughtFan1 } =
       await buyCreatorToken({
         provider,
@@ -367,7 +380,12 @@ describe("creator-token", () => {
       });
 
     // Check buy price of fan2 to buy tokens
-    const fan2QuotedBuyingPrice = await getBuyingPriceForToken(program, amtOfTokens, creatorToken.decimals, creator.publicKey);
+    const fan2QuotedBuyingPrice = await getBuyingPriceForToken(
+      program,
+      amtOfTokens,
+      creatorToken.decimals,
+      creator.publicKey
+    );
     const { buyCreatorTokenTx: fan2BuyTokenTx, tokenBought: tokenBoughtFan2 } =
       await buyCreatorToken({
         provider,
@@ -379,16 +397,25 @@ describe("creator-token", () => {
       });
 
     expect(tokenBoughtFan1.toString()).eq(tokenBoughtFan2.toString());
-    expect(new anchor.BN(fan1QuotedBuyingPrice).sub(new anchor.BN(fan2QuotedBuyingPrice)).toNumber()).lessThan(0); // fan2 quoted price should be greater
+    expect(
+      new anchor.BN(fan1QuotedBuyingPrice)
+        .sub(new anchor.BN(fan2QuotedBuyingPrice))
+        .toNumber()
+    ).lessThan(0); // fan2 quoted price should be greater
 
     let tokenAmtToSell = tokenBoughtFan1; // both fans should have same amount of tokens
 
     console.log("Fan 1 bought creator token succesfully : ", fan1BuyTokenTx);
     console.log("Fan 2 bought creator token succesfully : ", fan2BuyTokenTx);
     // console.log("Checking the price of fan1 and fan2 buying : ", fan1QuotedBuyingPrice.toString(), fan2QuotedBuyingPrice.toString());
-    
+
     // check how much SOL would fan1 get for selling his current token
-    const fan1QuotedSellPrice = await getSellingPriceForToken(program, amtOfTokens, creatorToken.decimals, creator.publicKey);
+    const fan1QuotedSellPrice = await getSellingPriceForToken(
+      program,
+      amtOfTokens,
+      creatorToken.decimals,
+      creator.publicKey
+    );
 
     // fan1 sells creator token first to get a profit
     // fan2 sells creator token second at a loss
@@ -406,7 +433,12 @@ describe("creator-token", () => {
     console.log("Fan1 successfully sold tokens : ", fan1SellTx);
 
     // check how much SOL would fan2 get for selling his current token
-    const fan2QuotedSellPrice = await getSellingPriceForToken(program, amtOfTokens, creatorToken.decimals, creator.publicKey);
+    const fan2QuotedSellPrice = await getSellingPriceForToken(
+      program,
+      amtOfTokens,
+      creatorToken.decimals,
+      creator.publicKey
+    );
 
     const fan2SellTx = await program.methods
       .sellCreatorToken(tokenAmtToSell)
@@ -423,10 +455,18 @@ describe("creator-token", () => {
 
     // compare fan1 initial SOL count with after selling creator token, pass if higher than before
     // console.log("Checking the price of fan1 and fan2 sell : ", fan1QuotedSellPrice.toString(), fan2QuotedSellPrice.toString());
-    expect(new anchor.BN(fan1QuotedSellPrice).sub(new anchor.BN(fan2QuotedSellPrice)).toNumber()).greaterThan(0); // fan1 quoted price should be greater
+    expect(
+      new anchor.BN(fan1QuotedSellPrice)
+        .sub(new anchor.BN(fan2QuotedSellPrice))
+        .toNumber()
+    ).greaterThan(0); // fan1 quoted price should be greater
 
-    const fan1BalanceAfterSell = await provider.connection.getBalance(fan1.publicKey);
-    const fan2BalanceAfterSell = await provider.connection.getBalance(fan2.publicKey);
+    const fan1BalanceAfterSell = await provider.connection.getBalance(
+      fan1.publicKey
+    );
+    const fan2BalanceAfterSell = await provider.connection.getBalance(
+      fan2.publicKey
+    );
 
     expect(fan1BalanceAfterSell).greaterThan(fan2BalanceAfterSell);
     expect(fan2QuotedBuyingPrice.toString()).eq(fan1QuotedSellPrice.toString());

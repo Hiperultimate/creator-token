@@ -66,7 +66,21 @@ pub struct SellToken<'info> {
 }
 
 pub fn handler(ctx: Context<SellToken>, tokens_to_sell: u64) -> Result<()> {
-    
+    // calculate cost for the tokens to be burned
+    let current_supply: u64 = ctx.accounts.mint.supply;
+    let base_price: u64 = ctx.accounts.creator_token.base_price;
+    let slope: u64 = ctx.accounts.creator_token.slope;
+    let decimals: u8 = ctx.accounts.mint.decimals;
+    let token_cost : u64 = get_selling_return(
+        tokens_to_sell,              // base units (u64)
+        current_supply,             // base units (u64)
+        base_price,                 // lamports per whole token (u64)
+        slope,                      // lamports per whole token (u64)
+        decimals                    // decimals (u8)
+    )?;
+
+    // msg!("CHECKING TOKEN COST : {}", token_cost);
+
     // burn tokens from seller_ata
     let required_accounts = Burn {
         authority: ctx.accounts.seller.to_account_info(),
@@ -79,30 +93,18 @@ pub fn handler(ctx: Context<SellToken>, tokens_to_sell: u64) -> Result<()> {
     );
     burn(cpi_context_burn, tokens_to_sell)?;
 
-    // calculate cost for the tokens burned
-    let current_supply: u64 = ctx.accounts.mint.supply;
-    let base_price: u64 = ctx.accounts.creator_token.base_price;
-    let slope: u64 = ctx.accounts.creator_token.slope;
-    let decimals: u8 = ctx.accounts.mint.decimals;  
-    let token_cost : u64 = get_selling_return(
-        tokens_to_sell,              // base units (u64)
-        current_supply,             // base units (u64)
-        base_price,                 // lamports per whole token (u64)
-        slope,                      // lamports per whole token (u64)
-        decimals                    // decimals (u8)
-    )?;
-
-    // msg!("CHECKING TOKEN COST : {}", token_cost);
-    
     // transfer equivalent lamports from vault to signer
-    let transfer_accounts = Transfer {
-        from: ctx.accounts.vault.to_account_info(),
-        to: ctx.accounts.seller.to_account_info()
-    };
-    let identity_proof_key = ctx.accounts.identity_proof.key();
-    let transfer_signing_seeds: &[&[&[u8]]] = &[ &[ b"vault", identity_proof_key.as_ref(), &[ctx.accounts.creator_token.vault_bump] ] ];
-    let cpi_context_transfer = CpiContext::new_with_signer(ctx.accounts.system_program.to_account_info(), transfer_accounts, transfer_signing_seeds);
-    transfer( cpi_context_transfer , token_cost)?;
+    // let transfer_accounts = Transfer {
+    //     from: ctx.accounts.vault.to_account_info(),
+    //     to: ctx.accounts.seller.to_account_info()
+    // };
+    // let identity_proof_key = ctx.accounts.identity_proof.key();
+    // let transfer_signing_seeds: &[&[&[u8]]] = &[ &[ b"vault", identity_proof_key.as_ref(), &[ctx.accounts.creator_token.vault_bump] ] ];
+    // let cpi_context_transfer = CpiContext::new_with_signer(ctx.accounts.system_program.to_account_info(), transfer_accounts, transfer_signing_seeds);
+    // transfer( cpi_context_transfer , token_cost)?;
+
+    **ctx.accounts.vault.to_account_info().lamports.borrow_mut() -= token_cost;
+    **ctx.accounts.seller.to_account_info().lamports.borrow_mut() += token_cost;
 
     Ok(())
 }

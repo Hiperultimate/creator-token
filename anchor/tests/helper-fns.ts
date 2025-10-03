@@ -1,9 +1,15 @@
 import * as anchor from "@coral-xyz/anchor";
 import { CreatorToken } from "../target/types/creator_token";
-import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import {
+  TOKEN_2022_PROGRAM_ID,
+  getAssociatedTokenAddress,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 
-
-export async function checkConfirmTransaction(provider: anchor.Provider, tx: string) {
+export async function checkConfirmTransaction(
+  provider: anchor.Provider,
+  tx: string
+) {
   const latestBlock = await provider.connection.getLatestBlockhash();
   const transactionResult = await provider.connection.confirmTransaction(
     {
@@ -72,11 +78,8 @@ export async function getSellingPriceForToken(
   decimals: number,
   tokenCreator: anchor.web3.PublicKey
 ) {
-  const tokenToSell = new anchor.BN(amtOfTokens).mul(
-    new anchor.BN(10).pow(new anchor.BN(decimals))
-  );
   const lamportsNeeded = await program.methods
-    .getSellingReturnPrice(tokenToSell)
+    .getSellingReturnPrice(new anchor.BN(amtOfTokens))
     .accounts({
       creator: tokenCreator,
     })
@@ -85,22 +88,39 @@ export async function getSellingPriceForToken(
   return lamportsNeeded;
 }
 
-
 export async function getBuyingPriceForToken(
   program: anchor.Program<CreatorToken>,
   amtOfTokens: number,
   decimals: number,
   tokenCreator: anchor.web3.PublicKey
 ) {
-  const tokenToBuy = new anchor.BN(amtOfTokens).mul(
-    new anchor.BN(10).pow(new anchor.BN(decimals))
-  );
   const lamportsNeeded = await program.methods
-    .getBuyingTokenPrice(tokenToBuy)
+    .getBuyingTokenPrice(new anchor.BN(amtOfTokens))
     .accounts({
       creator: tokenCreator,
     })
     .view();
 
   return lamportsNeeded;
+}
+
+export async function getUserTokenBalance(
+  provider: anchor.Provider,
+  mintAddress: anchor.web3.PublicKey,
+  userAddress: anchor.web3.PublicKey
+) {
+  const ata = await getAssociatedTokenAddress(
+    mintAddress,
+    userAddress,
+    undefined,
+    TOKEN_2022_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID
+  );
+
+  const balance = await provider.connection.getTokenAccountBalance(
+    ata,
+    "confirmed"
+  );
+
+  return balance.value;
 }
