@@ -121,9 +121,35 @@ export const getTokenBalanceOfUser = async ({
   );
 
   // get tokenAccount
-  const tokenBalance = connection.getTokenAccountBalance(userAta, "confirmed");
-  console.log("Token balance : ", tokenBalance);
+  const tokenBalance = await connection.getTokenAccountBalance(userAta, "confirmed");
 
   // return tokenAccount details
   return tokenBalance;
 };
+
+// Very expensive. Should swap to using Helius or any other indexer which keeps track of tokenHolderCount so we can simply rpc call it
+export const getTokenHoldersCount = async ({
+  connection,
+  mintAddress,
+  tokenProgram,
+}: {
+  connection: Connection;
+  mintAddress: PublicKey;
+  tokenProgram: PublicKey;
+  }) => {
+  // Get all token accounts for this mint
+  const response = await connection.getProgramAccounts(tokenProgram, {
+    filters: [
+      { memcmp: { offset: 0, bytes: mintAddress.toBase58() } },
+    ],
+  });
+
+  // Decode and filter non-zero balances
+  const holders = response.filter((accountInfo) => {
+    const balanceData = accountInfo.account.data;
+    const amount = balanceData.readBigUInt64LE(64);
+    return amount > 0n;
+  });
+
+  return holders.length;
+}

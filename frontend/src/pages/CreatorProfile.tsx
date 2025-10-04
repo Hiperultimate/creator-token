@@ -109,6 +109,7 @@ export default function CreatorProfile() {
     tokenDetails,
     tokenSupply,
     currentTokenPrice,
+    tokenHolderCount,
     isLoading: tokenDetailsLoading,
   } = useTokenDetails(new PublicKey(mockCreator.pubkey.toBase58()));
   const { data: getUserBalance, isLoading: isGetUserBalanceLoading } =
@@ -310,7 +311,7 @@ export default function CreatorProfile() {
                   <div>
                     <div className="text-2xl font-bold animate-counter flex flex-col items-center">
                       {tokenDetailsLoading ? (
-                        <Skeleton className="h-8 w-full max-w-[10re m]" />
+                        <Skeleton className="h-8 w-full max-w-[10rem]" />
                       ) : (
                         tokenSupply.toLocaleString()
                       )}
@@ -320,8 +321,12 @@ export default function CreatorProfile() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-accent animate-counter">
-                      {creator.holdersCount}
+                    <div className="text-2xl font-bold text-accent animate-counter flex flex-col items-center">
+                      {tokenDetailsLoading ? (
+                        <Skeleton className="h-8 w-full max-w-[10rem]" />
+                      ) : (
+                        tokenHolderCount.toLocaleString()
+                      )}
                     </div>
                     <div className="text-sm text-muted-foreground">Holders</div>
                   </div>
