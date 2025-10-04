@@ -2,6 +2,11 @@ import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import { CreatorToken } from "../../../anchor/creator-token-exports";
 import { BN } from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
+import {
+  getAssociatedTokenAddress,
+  getMint,
+  TOKEN_2022_PROGRAM_ID,
+} from "@solana/spl-token";
 
 export async function checkConfirmTransaction(
   connection: Connection,
@@ -54,8 +59,30 @@ export const getUserIdentity = async (
     program.programId
   );
   const userIdentity = await program.account.identity.fetch(identityPda);
-  console.log("Identity stored on blockchain : ", userIdentity);
+  console.log("User identity : ", userIdentity);
   return userIdentity;
+};
+
+export const getCreatorTokenMint = async ({
+  mintOwnerAddress,
+  programId,
+  connection,
+}: {
+  mintOwnerAddress: PublicKey;
+  programId: PublicKey;
+  connection: Connection;
+}) => {
+  const [identityProofPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("identity"), mintOwnerAddress.toBuffer()],
+    programId
+  );
+
+  const [mintPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("owner"), identityProofPda.toBuffer()],
+    programId
+  );
+
+  return await getMint(connection, mintPda, "confirmed", TOKEN_2022_PROGRAM_ID);
 };
 
 export const getTokenPrice = async ({
@@ -66,7 +93,7 @@ export const getTokenPrice = async ({
   program: Program<CreatorToken>;
   tokensToBuy: BN;
   creatorAddress: PublicKey;
-}) : Promise<bigint> => {
+}): Promise<bigint> => {
   const tokenCurrentPrice = await program.methods
     .getBuyingTokenPrice(tokensToBuy)
     .accounts({
@@ -74,4 +101,29 @@ export const getTokenPrice = async ({
     })
     .view();
   return tokenCurrentPrice;
+};
+
+export const getTokenBalanceOfUser = async ({
+  connection,
+  userAddress,
+  tokenMint,
+}: {
+  connection: Connection;
+  userAddress: PublicKey;
+  tokenMint: PublicKey;
+}) => {
+  // get user ATA
+  const userAta = await getAssociatedTokenAddress(
+    tokenMint,
+    userAddress,
+    undefined,
+    TOKEN_2022_PROGRAM_ID
+  );
+
+  // get tokenAccount
+  const tokenBalance = connection.getTokenAccountBalance(userAta, "confirmed");
+  console.log("Token balance : ", tokenBalance);
+
+  // return tokenAccount details
+  return tokenBalance;
 };

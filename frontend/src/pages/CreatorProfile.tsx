@@ -36,6 +36,7 @@ import { BN } from "@coral-xyz/anchor";
 import useTokenDetails from "@/hooks/useTokenDetails";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQueryClient } from "@tanstack/react-query";
+import { useGetTokenBalance } from "@/hooks/userDetails";
 
 // Mock creator data
 const mockCreator: Creator = {
@@ -92,6 +93,7 @@ const mockPosts: Post[] = [
 export default function CreatorProfile() {
   const queryClient = useQueryClient();
   const { creatorId } = useParams<{ creatorId: string }>();
+  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { publicKey: userAddress } = useWallet();
   const {
@@ -102,13 +104,6 @@ export default function CreatorProfile() {
   } = useCreatorTokenProgramFns({
     account: userAddress,
   });
-  const navigate = useNavigate();
-
-  const [creator, setCreator] = useState<Creator | null>(mockCreator);
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
-  const [userBalance, setUserBalance] = useState(0);
-  const [buyAmount, setBuyAmount] = useState("");
-  const [sellAmount, setSellAmount] = useState("");
 
   const {
     tokenDetails,
@@ -116,6 +111,15 @@ export default function CreatorProfile() {
     currentTokenPrice,
     isLoading: tokenDetailsLoading,
   } = useTokenDetails(new PublicKey(mockCreator.pubkey.toBase58()));
+  const { data: getUserBalance, isLoading: isGetUserBalanceLoading } =
+    useGetTokenBalance({ tokenMint: tokenDetails && tokenDetails.address });
+  
+  const [creator, setCreator] = useState<Creator | null>(mockCreator);
+  const [posts, setPosts] = useState<Post[]>(mockPosts);
+  const [userBalance, setUserBalance] = useState(0);
+  const [buyAmount, setBuyAmount] = useState("");
+  const [sellAmount, setSellAmount] = useState("");
+
   const { data: buyingCost, isLoading: isBuyingCostLoading } =
     useBuyingCostQuery(
       !isNaN(Number(buyAmount)) ? new BN(Number(buyAmount)) : new BN(0),
@@ -138,6 +142,12 @@ export default function CreatorProfile() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
 
   const isOwnProfile = user?.creatorId === creatorId;
+
+  useEffect(() => { 
+    if (getUserBalance) {
+      setUserBalance(getUserBalance.value.uiAmount);
+    }
+  },[getUserBalance])
 
   const handleBuyTokens = async () => {
     if (!buyAmount || !isAuthenticated || !tokenDetails) return;

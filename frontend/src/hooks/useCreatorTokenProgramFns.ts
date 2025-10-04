@@ -25,7 +25,6 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
         .rpc(),
     onSuccess: () => {
       console.log("Perform promised success toast logic here");
-      getUserIdentity(account, program);
     },
     onError: () => {
       console.log("Perform promised error toast logic here");
