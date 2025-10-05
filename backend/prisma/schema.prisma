@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated"
+  moduleFormat = "esm"
+  runtime      = "bun"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  walletAddress  String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  creator             Creator?
+  userTokenBalances   UserTokenBalance[]
+
+  @@map("users")
+}
+
+model UserTokenBalance {
+  id            String   @id @default(uuid()) @db.Uuid
+  walletAddress String
+  tokenMint     String
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [walletAddress], references: [walletAddress], onDelete: Cascade)
+
+  @@unique([walletAddress, tokenMint])
+  @@index([walletAddress])
+  @@map("user_token_balances")
+}
+
+model Creator {
+  id              String   @id @db.Uuid
+  displayName     String
+  bio             String?
+  identityAddress String   @unique
+  createdAt       DateTime @default(now())
+
+  user   User   @relation(fields: [id], references: [id], onDelete: Cascade, map: "creator_user_fk")
+  posts  Post[]
+  token  CreatorToken @relation(fields: [id], references: [creatorId], map: "creator_token_fk")
+
+  @@map("creators")
+}
+
+model CreatorToken {
+  id               String   @id @db.Uuid
+  creatorId        String   @unique @db.Uuid
+  tokenMintAddress String   @unique
+  basePrice        BigInt
+  slope            BigInt
+  createdAt        DateTime @default(now())
+
+  creator Creator? @relation
+
+  @@map("tokens")
+}
+
+model Post {
+  id             String       @id @default(uuid()) @db.Uuid
+  creatorId      String       @db.Uuid
+  contentUrl     String
+  contentType    ContentType
+  tokenThreshold BigInt
+  createdAt      DateTime     @default(now())
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, createdAt])
+  @@map("posts")
+}
+
+model Transaction {
+  id             String          @id @default(uuid()) @db.Uuid
+  tokenMint      String
+  type           TransactionType
+  amount         BigInt
+  walletPublicKey String
+  timestamp      DateTime        @default(now())
+
+  @@index([tokenMint, timestamp])
+  @@map("transactions")
+}
+
+enum ContentType {
+  TEXT
+  IMAGE
+  VIDEO
+}
+
+enum TransactionType {
+  BUY
+  SELL
+}
