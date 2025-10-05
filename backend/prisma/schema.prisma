@@ -21,6 +21,7 @@ model User {
 
   creator             Creator?
   userTokenBalances   UserTokenBalance[]
+  transactions        Transaction[]
 
   @@map("users")
 }
@@ -84,10 +85,13 @@ model Transaction {
   tokenMint      String
   type           TransactionType
   amount         BigInt
-  walletPublicKey String
+  walletAddress  String
   timestamp      DateTime        @default(now())
 
+  user           User            @relation(fields: [walletAddress], references: [walletAddress], onDelete: Cascade)
+
   @@index([tokenMint, timestamp])
+  @@index([walletAddress])
   @@map("transactions")
 }
 
