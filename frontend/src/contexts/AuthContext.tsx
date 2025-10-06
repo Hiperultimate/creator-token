@@ -57,7 +57,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         try {
           signedMessage = await signMessage(new TextEncoder().encode(message));
         } catch (error) {
-          toast.error("Failed to sign message");
+          toast.error("Failed to sign : message");
           disconnect();
         }
 
@@ -84,7 +84,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const isSigVerified = verificationResponse.data;
 
         toast("Logged in successfully");
-        console.log("Checking if signature is verified : ", isSigVerified);
 
         fetchUserData();
       })();

@@ -3,7 +3,8 @@ import useCreatorTokenProgram from "./useCreatorTokenProgram";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { getTokenPrice, getUserIdentity } from "@/lib/solana-helpers";
 import { BN } from "@coral-xyz/anchor";
-import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import axios from "axios";
 
 function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
   const { program } = useCreatorTokenProgram();
@@ -75,7 +76,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       const buyTokenDecimals = buyTokenAmount.mul(
         new BN(10).pow(tokenDecimalBN)
       );
-      return program.methods
+      const buyTokenResponse = await program.methods
         .buyCreatorToken(buyTokenDecimals)
         .accounts({
           buyer: account,
@@ -83,6 +84,15 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
         .rpc();
+      
+      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/transaction/add`, {
+        tokenMint: creatorAddress.toBase58(),
+        type: "buy",
+        amount: buyTokenDecimals.toString(),
+        walletAddress: account.toBase58(),
+      }, { withCredentials: true })
+      
+      return buyTokenResponse;
     },
     onSuccess: () => {
       console.log("Successfully bought creator token");
@@ -94,7 +104,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
 
   const sellTokenMutation = useMutation({
     mutationKey: ["sell-creator-token"],
-    mutationFn: ({
+    mutationFn: async ({
       sellTokenAmount,
       creatorAddress,
       tokenDecimal,
@@ -107,7 +117,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       const buyTokenDecimals = sellTokenAmount.mul(
         new BN(10).pow(tokenDecimalBN)
       );
-      return program.methods
+      const sellTokenResponse = await program.methods
         .sellCreatorToken(buyTokenDecimals)
         .accounts({
           seller: account,
@@ -115,6 +125,19 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
         .rpc();
+      
+      await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/transaction/add`,
+        {
+          tokenMint: creatorAddress.toBase58(),
+          type: "sell",
+          amount: buyTokenDecimals.toString(),
+          walletAddress: account.toBase58(),
+        },
+        { withCredentials: true }
+      );
+      
+      return sellTokenResponse;
     },
     onSuccess: () => {
       console.log("Successfully sold creator token");

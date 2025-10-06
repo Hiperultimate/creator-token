@@ -20,13 +20,13 @@ model User {
   updatedAt      DateTime @updatedAt
 
   creator             Creator?
-  userTokenBalances   UserTokenBalance[]
+  userTokens          UserToken[]
   transactions        Transaction[]
 
   @@map("users")
 }
 
-model UserTokenBalance {
+model UserToken {
   id            String   @id @default(uuid()) @db.Uuid
   walletAddress String
   tokenMint     String
@@ -36,7 +36,7 @@ model UserTokenBalance {
 
   @@unique([walletAddress, tokenMint])
   @@index([walletAddress])
-  @@map("user_token_balances")
+  @@map("user_tokens")
 }
 
 model Creator {
