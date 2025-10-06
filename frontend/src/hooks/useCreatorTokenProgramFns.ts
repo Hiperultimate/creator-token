@@ -1,7 +1,11 @@
 import { PublicKey } from "@solana/web3.js";
 import useCreatorTokenProgram from "./useCreatorTokenProgram";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getTokenPrice, getTokenBalanceOfUser } from "@/lib/solana-helpers";
+import {
+  getTokenPrice,
+  getTokenBalanceOfUser,
+  getCreatorTokenMint,
+} from "@/lib/solana-helpers";
 import { BN } from "@coral-xyz/anchor";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import axios from "axios";
@@ -43,15 +47,42 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       basePriceInLamports: BN;
       slopeInLamports: BN;
     }) => {
-      return (
-        program.methods
-          .createCreatorToken(decimals, basePriceInLamports, slopeInLamports)
-          .accounts({
-            creator: account,
-            tokenProgram: TOKEN_2022_PROGRAM_ID,
-          })
-          .rpc()
+      const createTokenResponse = await program.methods
+        .createCreatorToken(decimals, basePriceInLamports, slopeInLamports)
+        .accounts({
+          creator: account,
+          tokenProgram: TOKEN_2022_PROGRAM_ID,
+        })
+        .rpc();
+
+      const [identityAddress] = PublicKey.findProgramAddressSync(
+        [Buffer.from("identity"), account.toBuffer()],
+        program.programId
       );
+      const userIdentity = await program.account.identity.fetch(
+        identityAddress
+      );
+      const mintInfo = await getCreatorTokenMint({
+        mintOwnerAddress: account,
+        programId: program.programId,
+        connection: program.provider.connection,
+      });
+
+      await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/creator/add`,
+        {
+          displayName: userIdentity.creatorName,
+          bio: localStorage.getItem("bio") || "",
+          identityAddress: identityAddress.toBase58(),
+          userAddress: account.toBase58(),
+          tokenMintAddress: mintInfo.address.toBase58(),
+          basePrice: basePriceInLamports.toString(),
+          slope: slopeInLamports.toString(),
+        },
+        { withCredentials: true }
+      );
+
+      return createTokenResponse;
     },
     onSuccess: () => {
       console.log("Creator token created successfully");
@@ -92,14 +123,18 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       });
       const isHoldingTokenZero = balance.value.uiAmount === 0;
 
-      await axios.post(`${import.meta.env.VITE_BACKEND_URL}/transaction/add`, {
-        tokenMint: creatorAddress.toBase58(),
-        type: "buy",
-        amount: buyTokenDecimals.toString(),
-        walletAddress: account.toBase58(),
-        isHoldingTokenZero,
-      }, { withCredentials: true })
-      
+      await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/transaction/add`,
+        {
+          tokenMint: creatorAddress.toBase58(),
+          type: "buy",
+          amount: buyTokenDecimals.toString(),
+          walletAddress: account.toBase58(),
+          isHoldingTokenZero,
+        },
+        { withCredentials: true }
+      );
+
       return buyTokenResponse;
     },
     onSuccess: () => {
@@ -120,7 +155,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       sellTokenAmount: BN;
       creatorAddress: PublicKey;
       tokenDecimal: number;
-      }) => {
+    }) => {
       const tokenDecimalBN = new BN(tokenDecimal);
       const buyTokenDecimals = sellTokenAmount.mul(
         new BN(10).pow(tokenDecimalBN)
@@ -152,7 +187,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
         },
         { withCredentials: true }
       );
-      
+
       return sellTokenResponse;
     },
     onSuccess: () => {
@@ -168,7 +203,8 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
     // const debouncedTokens = useDebounce(tokensToBuy, 500);
     return useQuery({
       queryKey: ["get-buying-cost", tokensToBuy, creatorAddress],
-      queryFn: async () => getTokenPrice({program, creatorAddress, tokensToBuy}),
+      queryFn: async () =>
+        getTokenPrice({ program, creatorAddress, tokensToBuy }),
       enabled: tokensToBuy.gt(new BN(0)), // only run when input is > 0
     });
   };

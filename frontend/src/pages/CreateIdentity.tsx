@@ -18,11 +18,13 @@ import { useGetUserTokenIdentity } from '@/hooks/userDetails';
 const createIdentitySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name must be less than 50 characters'),
   bio: z.string().min(10, 'Bio must be at least 10 characters').max(200, 'Bio must be less than 200 characters'),
+  proofUrl: z.string().url('Proof URL must be a valid URL').min(3, 'Proof URL is required'),
 });
 
 export default function CreateIdentity() {
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
+  const [proofUrl, setProofUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({}); // Form errors
   const { publicKey : userPublicKey } = useWallet();
@@ -41,7 +43,7 @@ export default function CreateIdentity() {
 
   const validateForm = () => {
     try {
-      createIdentitySchema.parse({ name, bio });
+      createIdentitySchema.parse({ name, bio, proofUrl });
       setErrors({});
       return true;
     } catch (error) {
@@ -77,7 +79,7 @@ export default function CreateIdentity() {
     setIsLoading(true);
     
     SonnerToast.promise(
-      createCreatorIdentity.mutateAsync({ userName: name, proofUrl: bio }),
+      createCreatorIdentity.mutateAsync({ userName: name, proofUrl }),
       {
         loading: "Submitting creator identity request...",
         success: (data) => {
@@ -85,11 +87,12 @@ export default function CreateIdentity() {
           updateUser({
             isCreator: true,
             name: name,
-            creatorId: "new-creator-id", // This would be returned from the anchor call
+            creatorAddress: "new-creator-id", // This would be returned from the anchor call
           });
 
           // Redirect to create token page
           navigate("/creator/create_token");
+          localStorage.setItem("bio", bio);
 
           setIsLoading(false);
 
@@ -174,45 +177,63 @@ export default function CreateIdentity() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Name Field */}
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-sm font-medium">
-                    Creator Name *
-                  </Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Enter your creator name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className={`glass ${errors.name ? 'border-destructive' : ''}`}
-                    maxLength={50}
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{errors.name && <span className="text-destructive">{errors.name}</span>}</span>
-                    <span>{name.length}/50</span>
-                  </div>
-                </div>
+               <form onSubmit={handleSubmit} className="space-y-4">
+                 {/* Name Field */}
+                 <div className="space-y-2">
+                   <Label htmlFor="name" className="text-sm font-medium">
+                     Creator Name *
+                   </Label>
+                   <Input
+                     id="name"
+                     type="text"
+                     placeholder="Enter your creator name"
+                     value={name}
+                     onChange={(e) => setName(e.target.value)}
+                     className={`glass ${errors.name ? 'border-destructive' : ''}`}
+                     maxLength={50}
+                   />
+                   <div className="flex justify-between text-xs text-muted-foreground">
+                     <span>{errors.name && <span className="text-destructive">{errors.name}</span>}</span>
+                     <span>{name.length}/50</span>
+                   </div>
+                 </div>
 
-                {/* Bio Field */}
-                <div className="space-y-2">
-                  <Label htmlFor="bio" className="text-sm font-medium">
-                    Bio / Description *
-                  </Label>
-                  <Textarea
-                    id="bio"
-                    placeholder="Tell your audience about yourself, your content, and what they can expect..."
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    className={`glass min-h-[120px] ${errors.bio ? 'border-destructive' : ''}`}
-                    maxLength={200}
-                  />
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{errors.bio && <span className="text-destructive">{errors.bio}</span>}</span>
-                    <span>{bio.length}/200</span>
-                  </div>
-                </div>
+                 {/* Proof URL Field */}
+                 <div className="space-y-2">
+                   <Label htmlFor="proofUrl" className="text-sm font-medium">
+                     Proof URL *
+                   </Label>
+                   <Input
+                     id="proofUrl"
+                     type="url"
+                     placeholder="https://example.com/proof"
+                     value={proofUrl}
+                     onChange={(e) => setProofUrl(e.target.value)}
+                     className={`glass ${errors.proofUrl ? 'border-destructive' : ''}`}
+                   />
+                   <div className="text-xs text-muted-foreground">
+                     {errors.proofUrl && <span className="text-destructive">{errors.proofUrl}</span>}
+                   </div>
+                 </div>
+
+                 {/* Bio Field */}
+                 <div className="space-y-2">
+                   <Label htmlFor="bio" className="text-sm font-medium">
+                     Bio / Description *
+                   </Label>
+                   <Textarea
+                     id="bio"
+                     placeholder="Tell your audience about yourself, your content, and what they can expect..."
+                     value={bio}
+                     onChange={(e) => setBio(e.target.value)}
+                     className={`glass min-h-[120px] ${errors.bio ? 'border-destructive' : ''}`}
+                     maxLength={200}
+                   />
+                   <div className="flex justify-between text-xs text-muted-foreground">
+                     <span>{errors.bio && <span className="text-destructive">{errors.bio}</span>}</span>
+                     <span>{bio.length}/200</span>
+                   </div>
+                 </div>
 
                 {/* Info Box */}
                 <div className="bg-gradient-card border border-primary/20 rounded-lg p-4">
@@ -221,9 +242,9 @@ export default function CreateIdentity() {
                     <div className="text-sm">
                       <p className="font-medium mb-1">Important Information</p>
                       <ul className="text-muted-foreground space-y-1">
-                        <li>• Your creator identity will be stored on the blockchain</li>
-                        <li>• This information will be publicly visible to all users</li>
-                        <li>• You can update your bio later, but your name will be permanent</li>
+                       <li>• Your creator identity will be stored on the blockchain</li>
+                       <li>• This information will be publicly visible to all users</li>
+                       <li>• You can update your bio later, but your name and proof URL will be permanent</li>
                       </ul>
                     </div>
                   </div>
@@ -235,7 +256,7 @@ export default function CreateIdentity() {
                   variant="default"
                   size="lg"
                   className="w-full"
-                  disabled={isLoading || !name.trim() || !bio.trim()}
+                  disabled={isLoading || !name.trim() || !bio.trim() || !proofUrl.trim()}
                 >
                   {isLoading ? (
                     <>

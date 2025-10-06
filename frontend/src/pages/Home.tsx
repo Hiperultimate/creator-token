@@ -157,7 +157,7 @@ export default function Home() {
         </motion.div>
 
         {/* Creator Section */}
-        {user.isCreator && user.creatorId && (
+        {user.isCreator && user.creatorAddress && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -175,7 +175,7 @@ export default function Home() {
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Button 
                     variant="default" 
-                    onClick={() => navigate(`/creator/${user.creatorId}`)}
+                    onClick={() => navigate(`/creator/${user.creatorAddress}`)}
                     className="flex-1"
                   >
                     View My Profile

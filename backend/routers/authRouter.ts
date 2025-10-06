@@ -109,7 +109,7 @@ authRouter.get("/user/:walletPublicKey", async (req, res) => {
       id: true,
       walletAddress: true,
       creator: {
-        select: { id: true },
+        select: { creatorAddress: true },
       },
     },
   });

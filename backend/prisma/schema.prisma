@@ -40,43 +40,43 @@ model UserToken {
 }
 
 model Creator {
-  id              String   @id @db.Uuid
+  creatorAddress  String   @id
   displayName     String
   bio             String?
   identityAddress String   @unique
   createdAt       DateTime @default(now())
 
-  user   User   @relation(fields: [id], references: [id], onDelete: Cascade, map: "creator_user_fk")
+  user   User   @relation(fields: [creatorAddress], references: [walletAddress], onDelete: Cascade, map: "creator_user_fk")
   posts  Post[]
-  token  CreatorToken @relation(fields: [id], references: [creatorId], map: "creator_token_fk")
+  token  CreatorToken @relation(fields: [creatorAddress], references: [creatorAddress], map: "creator_token_fk")
 
   @@map("creators")
 }
 
 model CreatorToken {
-  id               String   @id @db.Uuid
-  creatorId        String   @unique @db.Uuid
+  id               String   @id @default(uuid()) @db.Uuid
+  creatorAddress   String   @unique
   tokenMintAddress String   @unique
   basePrice        BigInt
   slope            BigInt
   createdAt        DateTime @default(now())
 
-  creator Creator? @relation
+  creator Creator?
 
   @@map("tokens")
 }
 
 model Post {
   id             String       @id @default(uuid()) @db.Uuid
-  creatorId      String       @db.Uuid
+  creatorAddress String
   contentUrl     String
   contentType    ContentType
   tokenThreshold BigInt
   createdAt      DateTime     @default(now())
 
-  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creator Creator @relation(fields: [creatorAddress], references: [creatorAddress], onDelete: Cascade)
 
-  @@index([creatorId, createdAt])
+  @@index([creatorAddress, createdAt])
   @@map("posts")
 }
 

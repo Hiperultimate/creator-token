@@ -60,7 +60,7 @@ const mockCreator: Creator = {
 const mockPosts: Post[] = [
   {
     id: "1",
-    creatorId: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
+    creatorAddress: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
     content:
       "Just finished working on my latest NFT collection! Here's a sneak peek at the concept art.",
     imageUrl:
@@ -71,7 +71,7 @@ const mockPosts: Post[] = [
   },
   {
     id: "2",
-    creatorId: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
+    creatorAddress: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
     content:
       "Exclusive: My complete guide to creating generative art with AI. This tutorial covers everything from prompting to minting.",
     videoUrl: "https://example.com/video1.mp4",
@@ -81,7 +81,7 @@ const mockPosts: Post[] = [
   },
   {
     id: "3",
-    creatorId: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
+    creatorAddress: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
     content:
       "Market analysis: Why I think the next bull run will be driven by utility tokens rather than meme coins.",
     requiredTokens: 25,
@@ -92,7 +92,7 @@ const mockPosts: Post[] = [
 
 export default function CreatorProfile() {
   const queryClient = useQueryClient();
-  const { creatorId } = useParams<{ creatorId: string }>();
+  const { creatorAddress } = useParams<{ creatorAddress: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { publicKey: userAddress } = useWallet();
@@ -142,7 +142,7 @@ export default function CreatorProfile() {
   const [postRequiredTokens, setPostRequiredTokens] = useState("0");
   const [filePreview, setFilePreview] = useState<string | null>(null);
 
-  const isOwnProfile = user?.creatorId === creatorId;
+  const isOwnProfile = user?.creatorAddress === creatorAddress;
 
   useEffect(() => { 
     if (getUserBalance) {
@@ -210,7 +210,7 @@ export default function CreatorProfile() {
       // TODO: Implement actual backend API call to create post
       const newPost: Post = {
         id: Date.now().toString(),
-        creatorId: creatorId || "",
+        creatorAddress: creatorAddress || "",
         content: postContent,
         requiredTokens: Number(postRequiredTokens),
         createdAt: new Date(),

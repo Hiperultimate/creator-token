@@ -51,10 +51,10 @@ export function Navbar() {
             </Link>
           )}
 
-          {isAuthenticated && user?.isCreator && user.creatorId && (
-            <Link to={`/creator/${user.creatorId}`}>
+          {isAuthenticated && user?.isCreator && user.creatorAddress && (
+            <Link to={`/creator/${user.creatorAddress}`}>
               <Button
-                variant={isActive(`/creator/${user.creatorId}`) ? 'secondary' : 'ghost'}
+                variant={isActive(`/creator/${user.creatorAddress}`) ? 'secondary' : 'ghost'}
                 size="sm"
                 className="gap-2"
               >
@@ -107,10 +107,10 @@ export function Navbar() {
             </Link>
           )}
 
-          {isAuthenticated && user?.isCreator && user.creatorId && (
-            <Link to={`/creator/${user.creatorId}`} className="flex-1">
+          {isAuthenticated && user?.isCreator && user.creatorAddress && (
+            <Link to={`/creator/${user.creatorAddress}`} className="flex-1">
               <Button
-                variant={isActive(`/creator/${user.creatorId}`) ? 'secondary' : 'ghost'}
+                variant={isActive(`/creator/${user.creatorAddress}`) ? 'secondary' : 'ghost'}
                 size="sm"
                 className="w-full gap-1 text-xs"
               >

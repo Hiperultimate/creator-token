@@ -32,7 +32,7 @@ export interface Creator {
 
 export interface Post {
   id: string;
-  creatorId: string;
+  creatorAddress: string;
   content: string;
   imageUrl?: string;
   videoUrl?: string;
@@ -46,7 +46,7 @@ export interface UserProfile {
   name?: string;
   profileImage?: string;
   isCreator: boolean;
-  creatorId?: string;
+  creatorAddress?: string;
 }
 
 // Anchor program methods interface

@@ -36,6 +36,7 @@ export default function CreateToken() {
     useGetUserTokenIdentity(userAddress);
   const { data: creatorToken, isLoading: isCreatorTokenLoading } =
     useGetUserCreatorToken(userAddress);
+  
   const { createCreatorTokenMutation } = useCreatorTokenProgramFns({
     account: userAddress,
   });
@@ -110,7 +111,7 @@ export default function CreateToken() {
         loading: "Submitting creator identity request...",
         success: (data) => {
           // Redirect to create token page
-          navigate(`/creator/${user.creatorId}`);
+          navigate(`/creator/${user.creatorAddress}`);
 
           setIsLoading(false);
 

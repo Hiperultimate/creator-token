@@ -24,7 +24,7 @@ const AppContent = () => (
         <Route path="/" element={<Index />} />
         <Route path="/home" element={<Home />} />
         <Route path="/discover" element={<Discover />} />
-        <Route path="/creator/:creatorId" element={<CreatorProfile />} />
+        <Route path="/creator/:creatorAddress" element={<CreatorProfile />} />
         <Route path="/creator/create_identity" element={<CreateIdentity />} />
         <Route path="/creator/create_token" element={<CreateToken />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -13,3 +13,13 @@ export const transactionAddSchema = z.object({
   walletAddress: z.string(),
   isHoldingTokenZero: z.boolean(),
 });
+
+export const creatorAddSchema = z.object({
+  displayName: z.string().min(1, "Display name is required"),
+  bio: z.string().optional(),
+  identityAddress: z.string(),
+  userAddress: z.string(),
+  tokenMintAddress: z.string(),
+  basePrice: z.coerce.bigint(),
+  slope: z.coerce.bigint(),
+});
