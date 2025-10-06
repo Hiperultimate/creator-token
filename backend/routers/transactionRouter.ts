@@ -13,6 +13,7 @@ transactionRouter.post("/add", protectedRoute, async (req: any, res) => {
     type: typeRaw,
     amount: amountRaw,
     walletAddress: walletAddressRaw,
+    isHoldingTokenZero: isHoldingTokenZeroRaw,
   } = req.body;
 
   const validInputCheck = transactionAddSchema.safeParse({
@@ -20,13 +21,14 @@ transactionRouter.post("/add", protectedRoute, async (req: any, res) => {
     type: typeRaw,
     amount: amountRaw,
     walletAddress: walletAddressRaw,
+    isHoldingTokenZero: isHoldingTokenZeroRaw,
   });
 
   if (!validInputCheck.success) {
     return res.status(400).send("Invalid payload provided.");
   }
 
-  const { tokenMint, type, amount, walletAddress } = validInputCheck.data;
+  const { tokenMint, type, amount, walletAddress, isHoldingTokenZero } = validInputCheck.data;
 
   // Check if wallet matches
   if (req.user && (req.user.walletAddress !== walletAddress)) {
@@ -59,6 +61,14 @@ transactionRouter.post("/add", protectedRoute, async (req: any, res) => {
         updatedAt: new Date(),
       },
       create: {
+        walletAddress,
+        tokenMint,
+      },
+    });
+  } else if (type === "sell" && isHoldingTokenZero) {
+    // If selling and balance is zero, remove userToken
+    await prisma.userToken.deleteMany({
+      where: {
         walletAddress,
         tokenMint,
       },

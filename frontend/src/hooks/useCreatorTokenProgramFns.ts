@@ -1,9 +1,9 @@
 import { PublicKey } from "@solana/web3.js";
 import useCreatorTokenProgram from "./useCreatorTokenProgram";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { getTokenPrice, getUserIdentity } from "@/lib/solana-helpers";
+import { getTokenPrice, getTokenBalanceOfUser } from "@/lib/solana-helpers";
 import { BN } from "@coral-xyz/anchor";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import axios from "axios";
 
 function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
@@ -84,12 +84,20 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
         .rpc();
-      
+
+      const balance = await getTokenBalanceOfUser({
+        connection: program.provider.connection,
+        userAddress: account,
+        tokenMint: creatorAddress,
+      });
+      const isHoldingTokenZero = balance.value.uiAmount === 0;
+
       await axios.post(`${import.meta.env.VITE_BACKEND_URL}/transaction/add`, {
         tokenMint: creatorAddress.toBase58(),
         type: "buy",
         amount: buyTokenDecimals.toString(),
         walletAddress: account.toBase58(),
+        isHoldingTokenZero,
       }, { withCredentials: true })
       
       return buyTokenResponse;
@@ -125,7 +133,14 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
           tokenProgram: TOKEN_2022_PROGRAM_ID,
         })
         .rpc();
-      
+
+      const balance = await getTokenBalanceOfUser({
+        connection: program.provider.connection,
+        userAddress: account,
+        tokenMint: creatorAddress,
+      });
+      const isHoldingTokenZero = balance.value.uiAmount === 0;
+
       await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/transaction/add`,
         {
@@ -133,6 +148,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
           type: "sell",
           amount: buyTokenDecimals.toString(),
           walletAddress: account.toBase58(),
+          isHoldingTokenZero,
         },
         { withCredentials: true }
       );

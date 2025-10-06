@@ -112,19 +112,31 @@ export const getTokenBalanceOfUser = async ({
   userAddress: PublicKey;
   tokenMint: PublicKey;
 }) => {
-  // get user ATA
-  const userAta = await getAssociatedTokenAddress(
-    tokenMint,
-    userAddress,
-    undefined,
-    TOKEN_2022_PROGRAM_ID
-  );
+  try {
+    // get user ATA
+    const userAta = await getAssociatedTokenAddress(
+      tokenMint,
+      userAddress,
+      undefined,
+      TOKEN_2022_PROGRAM_ID
+    );
 
-  // get tokenAccount
-  const tokenBalance = await connection.getTokenAccountBalance(userAta, "confirmed");
+    // get tokenAccount
+    const tokenBalance = await connection.getTokenAccountBalance(userAta, "confirmed");
 
-  // return tokenAccount details
-  return tokenBalance;
+    // return tokenAccount details
+    return tokenBalance;
+  } catch (error) {
+    // If ATA doesn't exist, return balance as 0
+    return {
+      value: {
+        amount: "0",
+        decimals: 0,
+        uiAmount: 0,
+        uiAmountString: "0",
+      },
+    };
+  }
 };
 
 // Very expensive. Should swap to using Helius or any other indexer which keeps track of tokenHolderCount so we can simply rpc call it

@@ -11,4 +11,5 @@ export const transactionAddSchema = z.object({
   type: z.enum(["buy", "sell"]),
   amount: z.coerce.bigint(),
   walletAddress: z.string(),
+  isHoldingTokenZero: z.boolean(),
 });
