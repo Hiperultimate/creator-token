@@ -101,6 +101,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         { withCredentials: true }
       );
       const userData = response.data;
+      if (userData.isCreator) {
+        userData["creatorAddress"] = userData.walletAddress;
+      }
       setUser(userData);
     } catch (error) {
       console.error("Error fetching user data:", error);

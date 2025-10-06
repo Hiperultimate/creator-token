@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { WalletConnectButton } from '@/components/WalletConnectButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { Home, Compass, User, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export function Navbar() {
   const { isAuthenticated, user } = useAuth();
