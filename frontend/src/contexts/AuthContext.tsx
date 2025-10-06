@@ -1,6 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { UserProfile } from '@/types/anchor';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { UserProfile } from "@/types/anchor";
+import axios, { AxiosResponse } from "axios";
+import bs58 from "bs58";
+import nacl from "tweetnacl";
+import { toast } from "sonner";
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -16,7 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
@@ -26,7 +36,7 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { publicKey, connected, disconnect } = useWallet();
+  const { publicKey, connected, disconnect, signMessage } = useWallet();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -35,7 +45,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Fetch user data when wallet connects
   useEffect(() => {
     if (connected && publicKey) {
-      fetchUserData();
+      // Attempting to login the user auth
+      (async () => {
+        const nonceResponse = await axios.get<string>(
+          `${import.meta.env.VITE_BACKEND_URL}/auth/nonce/${publicKey}`
+        );
+        const nonce = nonceResponse.data;
+        const message = `Sign this message to authenticate : nonce ${nonce}`;
+        
+        let signedMessage: Uint8Array;
+        try {
+          signedMessage = await signMessage(new TextEncoder().encode(message));
+        } catch (error) {
+          toast.error("Failed to sign message");
+          disconnect();
+        }
+
+        let verificationResponse : AxiosResponse;
+        try {
+          verificationResponse = await axios.post<boolean>(
+            `${import.meta.env.VITE_BACKEND_URL}/auth/signin`,
+            {
+              walletPublicKey: publicKey,
+              nonce,
+              signedMessage: bs58.encode(signedMessage),
+            }
+          );
+        } catch (error) {
+          // disconnect wallet
+          // send toast message
+          toast.error("Failed to verify signature");
+          disconnect();
+          return;
+        }
+        const isSigVerified = verificationResponse.data;
+
+        toast("Logged in successfully");
+        console.log("Checking if signature is verified : ", isSigVerified);
+
+        fetchUserData();
+      })();
     } else {
       setUser(null);
     }
@@ -43,12 +92,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const fetchUserData = async () => {
     if (!publicKey) return;
-    
+
     setIsLoading(true);
     try {
       // TODO: Replace with actual API call from backend
       const response = await fetch(`/api/users/${publicKey.toBase58()}`);
-      
+
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
@@ -60,7 +109,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         });
       }
     } catch (error) {
-      console.error('Error fetching user data:', error);
+      console.error("Error fetching user data:", error);
       // Fallback to basic profile
       setUser({
         walletAddress: publicKey.toBase58(),
@@ -99,9 +148,5 @@ export function AuthProvider({ children }: AuthProviderProps) {
     updateUser,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

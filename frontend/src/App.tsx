@@ -41,12 +41,12 @@ const App = () => (
         <AuthProvider>
           <TooltipProvider>
             <Toaster />
-            <Sonner />
             <AppContent />
           </TooltipProvider>
         </AuthProvider>
       </WalletContextProvider>
     </BrowserRouter>
+    <Sonner />
   </QueryClientProvider>
 );
 

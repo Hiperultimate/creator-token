@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node index.ts",
+    "dev": "bun index.ts",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -18,9 +18,16 @@
   },
   "dependencies": {
     "@prisma/client": "^6.16.3",
+    "@solana/web3.js": "^1.98.4",
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "bs58": "^6.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "prisma": "^6.16.3"
+    "jsonwebtoken": "^9.0.2",
+    "prisma": "^6.16.3",
+    "tweetnacl": "^1.0.3",
+    "zod": "^4.1.11"
   }
 }
