@@ -76,6 +76,41 @@ transactionRouter.post("/add", protectedRoute, async (req: any, res) => {
   }
 
   return res.status(200).send("Transaction added successfully");
+ });
+
+transactionRouter.get("/user-stats", protectedRoute, async (req: any, res) => {
+  const walletAddress = req.user.walletAddress;
+
+  // const totalOperationsQuery = prisma.transaction.count({
+  //   where: { walletAddress },
+  // });
+
+  // const ownedTokensQuery = prisma.userToken.findMany({
+  //   where: { walletAddress },
+  //   select: { tokenMint: true },
+  // });
+
+  const totalOperations = await prisma.transaction.count({
+    where: { walletAddress },
+  });
+
+  const ownedTokens = await prisma.userToken.findMany({
+    where: { walletAddress },
+    select: { tokenMint: true },
+  });
+
+  console.log("Checking wallet Address : ", walletAddress);
+  console.log("Checking owned token  :", ownedTokens);
+
+  // const [totalOperations, ownedTokens] = await Promise.all([
+  //   totalOperationsQuery,
+  //   ownedTokensQuery,
+  // ]);
+
+  return res.json({
+    totalOperations,
+    ownedTokens: ownedTokens.map(t => t.tokenMint),
+  });
 });
 
 export default transactionRouter;

@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TokenBalance } from '@/types/anchor';
 import { Wallet, TrendingUp, Users, ArrowUpRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useGetUserTokenDetails } from '@/hooks/useTokenDetails';
+import { useWallet } from '@solana/wallet-adapter-react';
 
 // Mock data - replace with actual data fetching
 const mockTokens: TokenBalance[] = [
@@ -16,7 +18,11 @@ const mockTokens: TokenBalance[] = [
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
+  const { publicKey } = useWallet();
+  const { data } = useGetUserTokenDetails(publicKey);
   const navigate = useNavigate();
+
+  console.log("Checking data : ", data);
 
   useEffect(() => {
     if (!isAuthenticated) {
