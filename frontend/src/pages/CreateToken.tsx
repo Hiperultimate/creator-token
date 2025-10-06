@@ -15,6 +15,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { BN } from "@coral-xyz/anchor";
 import { toast as SonnerToast } from "sonner";
 import { LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { useGetUserCreatorToken, useGetUserTokenIdentity } from "@/hooks/userDetails";
 
 const createTokenSchema = z.object({
   decimals: z.number().min(0).max(9),
@@ -31,11 +32,27 @@ export default function CreateToken() {
 
   const { isAuthenticated, user } = useAuth();
   const { publicKey: userAddress } = useWallet();
+  const { data: userIdentity, isLoading: isUserIdentityLoading } =
+    useGetUserTokenIdentity(userAddress);
+  const { data: creatorToken, isLoading: isCreatorTokenLoading } =
+    useGetUserCreatorToken(userAddress);
   const { createCreatorTokenMutation } = useCreatorTokenProgramFns({
     account: userAddress,
   });
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  if (isUserIdentityLoading || isCreatorTokenLoading) {
+    return (
+      <div className="w-full min-h-[60vh] flex justify-center items-center">
+        <span>Loading...</span>
+      </div>
+    );
+  }
+
+  if (creatorToken) {
+    navigate(`/creator/${userAddress}`);
+  }
 
   // Calculate example prices
   const calculatePrice = (tokenAmount: number) => {
@@ -79,7 +96,9 @@ export default function CreateToken() {
 
     setIsLoading(true);
 
-    const basePriceInLamports = new BN(Math.round(basePrice * LAMPORTS_PER_SOL)); // Convert SOL to lamports
+    const basePriceInLamports = new BN(
+      Math.round(basePrice * LAMPORTS_PER_SOL)
+    ); // Convert SOL to lamports
     const slopeInLamports = new BN(Math.round(slope * LAMPORTS_PER_SOL));
     SonnerToast.promise(
       createCreatorTokenMutation.mutateAsync({
@@ -126,7 +145,7 @@ export default function CreateToken() {
     );
   }
 
-  if (!user?.isCreator) {
+  if (!user?.isCreator && !userIdentity) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Card className="glass-card max-w-md mx-auto">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { z } from 'zod';
 import useCreatorTokenProgramFns from "@/hooks/useCreatorTokenProgramFns";
 import { useWallet } from '@solana/wallet-adapter-react';
 import { toast as SonnerToast } from 'sonner';
+import { useGetUserTokenIdentity } from '@/hooks/userDetails';
 
 const createIdentitySchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name must be less than 50 characters'),
@@ -28,8 +29,15 @@ export default function CreateIdentity() {
   
   const { isAuthenticated, updateUser } = useAuth();
   const { createIdentityMutation : createCreatorIdentity } = useCreatorTokenProgramFns({ account: userPublicKey });
+  const { data: userIdentity } = useGetUserTokenIdentity(userPublicKey);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (userIdentity) {
+      navigate("/creator/create_token");
+    }
+  }, [userIdentity, navigate]);
 
   const validateForm = () => {
     try {

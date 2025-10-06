@@ -9,7 +9,6 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { UserProfile } from "@/types/anchor";
 import axios, { AxiosResponse } from "axios";
 import bs58 from "bs58";
-import nacl from "tweetnacl";
 import { toast } from "sonner";
 
 interface AuthContextType {
