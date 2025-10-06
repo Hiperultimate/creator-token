@@ -69,6 +69,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
               walletPublicKey: publicKey,
               nonce,
               signedMessage: bs58.encode(signedMessage),
+            },
+            {
+              withCredentials: true
             }
           );
         } catch (error) {
@@ -88,26 +91,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } else {
       setUser(null);
     }
-  }, [connected, publicKey]);
+  }, [connected, publicKey ]);
 
   const fetchUserData = async () => {
     if (!publicKey) return;
 
     setIsLoading(true);
     try {
-      // TODO: Replace with actual API call from backend
-      const response = await fetch(`/api/users/${publicKey.toBase58()}`);
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        // User doesn't exist in backend, create basic profile
-        setUser({
-          walletAddress: publicKey.toBase58(),
-          isCreator: false,
-        });
-      }
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/auth/user/${publicKey.toBase58()}`,
+        { withCredentials: true }
+      );
+      const userData = response.data;
+      setUser(userData);
     } catch (error) {
       console.error("Error fetching user data:", error);
       // Fallback to basic profile
