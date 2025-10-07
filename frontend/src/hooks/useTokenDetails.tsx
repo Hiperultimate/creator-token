@@ -7,6 +7,8 @@ import {
   getTokenHoldersCount,
   getTokenPrice,
   getTokenBalanceOfUser,
+  getTokenSellPrice,
+  getSOLPriceUSDT,
 } from "@/lib/solana-helpers";
 import { BN } from "@coral-xyz/anchor";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
@@ -75,36 +77,45 @@ const useGetUserTokenDetails = (account: PublicKey) => {
           async ({
             tokenMint,
             tokenOwnerAddress,
+            creatorName,
+            creatorWallet
           }: {
             tokenMint: string;
             tokenOwnerAddress: string;
+            creatorName: string,
+            creatorWallet: string
           }) => {
             try {
-              const [balance, price] = await Promise.all([
-                getTokenBalanceOfUser({
-                  connection,
-                  userAddress: account,
-                  tokenMint: new PublicKey(tokenMint),
-                }),
-                getTokenPrice({
-                  program,
-                  tokensToBuy: new BN(1),
-                  creatorAddress: new PublicKey(tokenOwnerAddress),
-                }),
-              ]);
+              const balance = await getTokenBalanceOfUser({
+                connection,
+                userAddress: account,
+                tokenMint: new PublicKey(tokenMint),
+              });
 
-              // Needs rework. Does not work
-              const tokenValue =
-                (Number(price) / LAMPORTS_PER_SOL) * balance.value.uiAmount;
-              totalPortfolioValue += tokenValue;
+              const price = await getTokenSellPrice({
+                program,
+                tokensToSell: new BN(balance.value.uiAmount),
+                creatorAddress: new PublicKey(tokenOwnerAddress),
+              });
+
+              const DOLLAR_PER_SOL = await getSOLPriceUSDT();
+              const tokenValue = Number(price) / LAMPORTS_PER_SOL;
+              const tokenValueInDollars = tokenValue * DOLLAR_PER_SOL
+
+              totalPortfolioValue += tokenValueInDollars;
 
               return {
                 mint: tokenMint,
                 amount: balance.value.amount,
                 decimals: balance.value.decimals,
+                creatorName,
+                creatorWallet
               };
             } catch (error) {
-              console.log("Error occured while fetching user token details :", error);
+              console.log(
+                "Error occured while fetching user token details :",
+                error
+              );
             }
           }
         )

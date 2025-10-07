@@ -88,13 +88,27 @@ transactionRouter.get("/user-stats", protectedRoute, async (req: any, res) => {
 
   const ownedTokens = await prisma.userToken.findMany({
     where: { walletAddress },
-    select: { tokenMint: true, walletAddress: true },
+    select: {
+      tokenMint: true,
+      walletAddress: true,
+      user: {
+        select: {
+          creator: { select: { displayName: true } },
+          walletAddress: true,
+        },
+      },
+    },
   });
 
   return res.json({
     totalOperations,
     ownedTokens: ownedTokens.map((t) => {
-      return { tokenMint: t.tokenMint, tokenOwnerAddress: t.walletAddress };
+      return {
+        tokenMint: t.tokenMint,
+        tokenOwnerAddress: t.walletAddress,
+        creatorName: t.user.creator?.displayName,
+        creatorWallet: t.user.walletAddress
+      };
     }),
   });
 });

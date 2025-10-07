@@ -7,6 +7,7 @@ import {
   getMint,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
+import axios from "axios";
 
 export async function checkConfirmTransaction(
   connection: Connection,
@@ -103,6 +104,25 @@ export const getTokenPrice = async ({
   return tokenCurrentPrice;
 };
 
+export const getTokenSellPrice = async ({
+  program,
+  tokensToSell,
+  creatorAddress,
+}: {
+  program: Program<CreatorToken>;
+  tokensToSell: BN;
+  creatorAddress: PublicKey;
+}) : Promise<bigint>=> {
+  const tokenSellPrice = await program.methods
+    .getSellingReturnPrice(tokensToSell)
+    .accounts({
+      creator: creatorAddress,
+    })
+    .view();
+
+  return tokenSellPrice;
+};
+
 export const getTokenBalanceOfUser = async ({
   connection,
   userAddress,
@@ -122,7 +142,10 @@ export const getTokenBalanceOfUser = async ({
     );
 
     // get tokenAccount
-    const tokenBalance = await connection.getTokenAccountBalance(userAta, "confirmed");
+    const tokenBalance = await connection.getTokenAccountBalance(
+      userAta,
+      "confirmed"
+    );
 
     // return tokenAccount details
     return tokenBalance;
@@ -148,12 +171,10 @@ export const getTokenHoldersCount = async ({
   connection: Connection;
   mintAddress: PublicKey;
   tokenProgram: PublicKey;
-  }) => {
+}) => {
   // Get all token accounts for this mint
   const response = await connection.getProgramAccounts(tokenProgram, {
-    filters: [
-      { memcmp: { offset: 0, bytes: mintAddress.toBase58() } },
-    ],
+    filters: [{ memcmp: { offset: 0, bytes: mintAddress.toBase58() } }],
   });
 
   // Decode and filter non-zero balances
@@ -164,4 +185,16 @@ export const getTokenHoldersCount = async ({
   });
 
   return holders.length;
+};
+
+export const getSOLPriceUSDT = async () => {
+  try {
+    const currentPriceQuery = await axios.get("https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT");
+    console.log("Checking current price : " , Number(currentPriceQuery.data.price));
+    const currentPrice = Number(currentPriceQuery.data.price);
+    return currentPrice;
+  } catch (error) {
+    console.error("Get SOL Price API Not working, please change it");
+    return 230;
+  }
 }
