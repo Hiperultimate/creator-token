@@ -2,7 +2,12 @@ import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import useCreatorTokenProgram from "./useCreatorTokenProgram";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { useQuery } from "@tanstack/react-query";
-import { getCreatorTokenMint, getTokenHoldersCount, getTokenPrice, getTokenBalanceOfUser } from "@/lib/solana-helpers";
+import {
+  getCreatorTokenMint,
+  getTokenHoldersCount,
+  getTokenPrice,
+  getTokenBalanceOfUser,
+} from "@/lib/solana-helpers";
 import { BN } from "@coral-xyz/anchor";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 import axios from "axios";
@@ -15,7 +20,11 @@ const useTokenDetails = (ownerAddress: PublicKey) => {
     queryKey: ["token-details", ownerAddress],
     queryFn: async () => {
       const [tokenDetails, oneTokenCost] = await Promise.all([
-        getCreatorTokenMint({ mintOwnerAddress: ownerAddress, programId, connection }),
+        getCreatorTokenMint({
+          mintOwnerAddress: ownerAddress,
+          programId,
+          connection,
+        }),
         getTokenPrice({
           program,
           creatorAddress: ownerAddress,
@@ -23,20 +32,22 @@ const useTokenDetails = (ownerAddress: PublicKey) => {
         }),
       ]);
 
-      const tokenHolderCount = await getTokenHoldersCount({ connection, mintAddress: tokenDetails.address, tokenProgram : TOKEN_2022_PROGRAM_ID });
-        
+      const tokenHolderCount = await getTokenHoldersCount({
+        connection,
+        mintAddress: tokenDetails.address,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      });
+
       const solPrice = Number(oneTokenCost) / LAMPORTS_PER_SOL;
       return {
         tokenDetails: tokenDetails,
         currentTokenPrice: solPrice,
         tokenHolderCount,
-        tokenSupply:
-          tokenDetails.supply / 10n ** BigInt(tokenDetails.decimals),
+        tokenSupply: tokenDetails.supply / 10n ** BigInt(tokenDetails.decimals),
       };
     },
   });
 
-  
   return {
     ...data,
     ...rest,
@@ -59,33 +70,44 @@ const useGetUserTokenDetails = (account: PublicKey) => {
 
       let totalPortfolioValue = 0;
 
-      console.log("Checking ownedTokens : ", ownedTokens);
-
       const tokenDetails = await Promise.all(
-        ownedTokens.map(async (tokenMint: string) => {
-          const [balance, price] = await Promise.all([
-            getTokenBalanceOfUser({
-              connection,
-              userAddress: account,
-              tokenMint: new PublicKey(tokenMint),
-            }),
-            getTokenPrice({
-              program,
-              tokensToBuy: new BN(1),
-              creatorAddress: new PublicKey(tokenMint),
-            }),
-          ]);
+        ownedTokens.map(
+          async ({
+            tokenMint,
+            tokenOwnerAddress,
+          }: {
+            tokenMint: string;
+            tokenOwnerAddress: string;
+          }) => {
+            try {
+              const [balance, price] = await Promise.all([
+                getTokenBalanceOfUser({
+                  connection,
+                  userAddress: account,
+                  tokenMint: new PublicKey(tokenMint),
+                }),
+                getTokenPrice({
+                  program,
+                  tokensToBuy: new BN(1),
+                  creatorAddress: new PublicKey(tokenOwnerAddress),
+                }),
+              ]);
 
-          // Needs rework. Does not work
-          const tokenValue = (Number(price) / LAMPORTS_PER_SOL) * balance.value.uiAmount;
-          totalPortfolioValue += tokenValue;
+              // Needs rework. Does not work
+              const tokenValue =
+                (Number(price) / LAMPORTS_PER_SOL) * balance.value.uiAmount;
+              totalPortfolioValue += tokenValue;
 
-          return {
-            mint: tokenMint,
-            amount: balance.value.amount,
-            decimals: balance.value.decimals,
-          };
-        })
+              return {
+                mint: tokenMint,
+                amount: balance.value.amount,
+                decimals: balance.value.decimals,
+              };
+            } catch (error) {
+              console.log("Error occured while fetching user token details :", error);
+            }
+          }
+        )
       );
 
       return {

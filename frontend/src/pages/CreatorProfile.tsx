@@ -158,6 +158,7 @@ export default function CreatorProfile() {
         buyTokenAmount: new BN(Number(buyAmount)),
         creatorAddress: new PublicKey(mockCreator.pubkey.toBase58()),
         tokenDecimal: tokenDetails.decimals,
+        tokenMint: tokenDetails.address
       });
       queryClient.invalidateQueries({ queryKey: ["token-details"] });
       console.log("User bought token :", tx);

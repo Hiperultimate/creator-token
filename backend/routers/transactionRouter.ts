@@ -4,7 +4,6 @@ import { prisma } from "../src/lib/prisma";
 import { protectedRoute } from "../middleware/protectedRoute";
 import { TransactionType } from "../generated/enums";
 
-
 const transactionRouter = Router();
 
 transactionRouter.post("/add", protectedRoute, async (req: any, res) => {
@@ -28,15 +27,17 @@ transactionRouter.post("/add", protectedRoute, async (req: any, res) => {
     return res.status(400).send("Invalid payload provided.");
   }
 
-  const { tokenMint, type, amount, walletAddress, isHoldingTokenZero } = validInputCheck.data;
+  const { tokenMint, type, amount, walletAddress, isHoldingTokenZero } =
+    validInputCheck.data;
 
   // Check if wallet matches
-  if (req.user && (req.user.walletAddress !== walletAddress)) {
+  if (req.user && req.user.walletAddress !== walletAddress) {
     return res.status(403).send("Forbidden");
   }
 
   // Map type to enum
-  const transactionType = type === "buy" ? TransactionType.BUY : TransactionType.SELL;
+  const transactionType =
+    type === "buy" ? TransactionType.BUY : TransactionType.SELL;
 
   // Create transaction
   await prisma.transaction.create({
@@ -76,19 +77,10 @@ transactionRouter.post("/add", protectedRoute, async (req: any, res) => {
   }
 
   return res.status(200).send("Transaction added successfully");
- });
+});
 
 transactionRouter.get("/user-stats", protectedRoute, async (req: any, res) => {
   const walletAddress = req.user.walletAddress;
-
-  // const totalOperationsQuery = prisma.transaction.count({
-  //   where: { walletAddress },
-  // });
-
-  // const ownedTokensQuery = prisma.userToken.findMany({
-  //   where: { walletAddress },
-  //   select: { tokenMint: true },
-  // });
 
   const totalOperations = await prisma.transaction.count({
     where: { walletAddress },
@@ -96,20 +88,14 @@ transactionRouter.get("/user-stats", protectedRoute, async (req: any, res) => {
 
   const ownedTokens = await prisma.userToken.findMany({
     where: { walletAddress },
-    select: { tokenMint: true },
+    select: { tokenMint: true, walletAddress: true },
   });
-
-  console.log("Checking wallet Address : ", walletAddress);
-  console.log("Checking owned token  :", ownedTokens);
-
-  // const [totalOperations, ownedTokens] = await Promise.all([
-  //   totalOperationsQuery,
-  //   ownedTokensQuery,
-  // ]);
 
   return res.json({
     totalOperations,
-    ownedTokens: ownedTokens.map(t => t.tokenMint),
+    ownedTokens: ownedTokens.map((t) => {
+      return { tokenMint: t.tokenMint, tokenOwnerAddress: t.walletAddress };
+    }),
   });
 });
 

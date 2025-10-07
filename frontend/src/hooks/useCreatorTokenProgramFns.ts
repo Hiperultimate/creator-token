@@ -98,10 +98,12 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       buyTokenAmount,
       creatorAddress,
       tokenDecimal,
+      tokenMint
     }: {
       buyTokenAmount: BN;
       creatorAddress: PublicKey;
       tokenDecimal: number;
+      tokenMint: PublicKey
     }) => {
       const tokenDecimalBN = new BN(tokenDecimal);
       const buyTokenDecimals = buyTokenAmount.mul(
@@ -126,7 +128,7 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/transaction/add`,
         {
-          tokenMint: creatorAddress.toBase58(),
+          tokenMint: tokenMint.toBase58(),
           type: "buy",
           amount: buyTokenDecimals.toString(),
           walletAddress: account.toBase58(),
