@@ -337,6 +337,18 @@ export default function CreatorProfile() {
 
           {/* Content Feed */}
           <div className="lg:col-span-2 space-y-6">
+            {!isAuthenticated ? (
+              <Card className="glass-card">
+                <CardContent className="p-8 text-center">
+                  <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">Content Feed</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Connect your wallet to view the creator's content feed
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+            <>
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Content Feed</h2>
               {isOwnProfile && (
@@ -657,6 +669,8 @@ export default function CreatorProfile() {
                 </div>
               )}
             </div>
+            </>
+            )}
           </div>
         </div>
       </motion.div>
