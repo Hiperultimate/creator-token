@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +16,6 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { Creator, Post } from "@/types/anchor";
 import {
-  Users,
   TrendingUp,
   Lock,
   Plus,
@@ -30,16 +29,14 @@ import {
   Loader2,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import useCreatorTokenProgramFns from "@/hooks/useCreatorTokenProgramFns";
 import { useWallet } from "@solana/wallet-adapter-react";
-import axios from "axios";
-import { toast } from "sonner";
-import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { BN } from "@coral-xyz/anchor";
+import { PublicKey } from "@solana/web3.js";
 import useTokenDetails from "@/hooks/useTokenDetails";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQueryClient } from "@tanstack/react-query";
 import { useGetTokenBalance } from "@/hooks/userDetails";
+import { useCreatorPosts } from "@/hooks/useCreatorPosts";
+import { useTokenTrading, formatSolAmount } from "@/hooks/useTokenTrading";
+import { useCreatePost } from "@/hooks/useCreatePost";
 
 // Mock creator data
 const mockCreator: Creator = {
@@ -59,303 +56,95 @@ const mockCreator: Creator = {
   holdersCount: 145,
 };
 
-// Mock posts data
-const mockPosts: Post[] = [
-  {
-    id: "1",
-    creatorAddress: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
-    content:
-      "Just finished working on my latest NFT collection! Here's a sneak peek at the concept art.",
-    imageUrl:
-      "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500",
-    requiredTokens: 0,
-    createdAt: new Date("2024-01-15"),
-    type: "image",
-  },
-  {
-    id: "2",
-    creatorAddress: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
-    content:
-      "Exclusive: My complete guide to creating generative art with AI. This tutorial covers everything from prompting to minting.",
-    videoUrl: "https://example.com/video1.mp4",
-    requiredTokens: 50,
-    createdAt: new Date("2024-01-10"),
-    type: "video",
-  },
-  {
-    id: "3",
-    creatorAddress: "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
-    content:
-      "Market analysis: Why I think the next bull run will be driven by utility tokens rather than meme coins.",
-    requiredTokens: 25,
-    createdAt: new Date("2024-01-05"),
-    type: "text",
-  },
-];
-
 export default function CreatorProfile() {
-  const queryClient = useQueryClient();
   const { creatorAddress } = useParams<{ creatorAddress: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const { publicKey: userAddress } = useWallet();
-  const {
-    buyTokenMutation,
-    sellTokenMutation,
-    useBuyingCostQuery,
-    useSellingReturnQuery,
-  } = useCreatorTokenProgramFns({
-    account: userAddress,
-  });
 
+  const creatorPubkey = new PublicKey(mockCreator.pubkey.toBase58());
+
+  // Token details
   const {
     tokenDetails,
     tokenSupply,
     currentTokenPrice,
     tokenHolderCount,
     isLoading: tokenDetailsLoading,
-  } = useTokenDetails(new PublicKey(mockCreator.pubkey.toBase58()));
-  const { data: getUserBalance, isLoading: isGetUserBalanceLoading } =
-    useGetTokenBalance({ tokenMint: tokenDetails && tokenDetails.address });
-  
-  const [creator, setCreator] = useState<Creator | null>(mockCreator);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [userBalance, setUserBalance] = useState(0);
-  const [buyAmount, setBuyAmount] = useState("");
-  const [sellAmount, setSellAmount] = useState("");
+  } = useTokenDetails(creatorPubkey);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [hasNextPage, setHasNextPage] = useState(false);
-  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const postsContainerRef = useRef<HTMLDivElement>(null);
-  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const { data: getUserBalance } = useGetTokenBalance({
+    tokenMint: tokenDetails && tokenDetails.address,
+  });
 
-  const { data: buyingCost, isLoading: isBuyingCostLoading } =
-    useBuyingCostQuery(
-      !isNaN(Number(buyAmount)) ? new BN(Number(buyAmount)) : new BN(0),
-      new PublicKey(mockCreator.pubkey.toBase58())
-    );
+  // Posts hook
+  const {
+    posts,
+    isLoadingPosts,
+    isLoadingMore,
+    hasNextPage,
+    loadMoreTriggerRef,
+    addPost,
+  } = useCreatorPosts({
+    creatorAddress,
+    isAuthenticated,
+  });
 
-  const { data: sellingReturn, isLoading: isSellingCostLoading } =
-    useSellingReturnQuery(
-      !isNaN(Number(sellAmount)) ? new BN(Number(sellAmount)) : new BN(0),
-      new PublicKey(mockCreator.pubkey.toBase58())
-    );
+  // Token trading hook
+  const {
+    buyAmount,
+    setBuyAmount,
+    buyingCost,
+    isBuyingCostLoading,
+    handleBuyTokens,
+    sellAmount,
+    setSellAmount,
+    sellingReturn,
+    isSellingCostLoading,
+    handleSellTokens,
+    userBalance,
+    setUserBalance,
+  } = useTokenTrading({
+    userAddress,
+    creatorAddress: creatorPubkey,
+    tokenDetails: tokenDetails
+      ? { address: tokenDetails.address, decimals: tokenDetails.decimals }
+      : undefined,
+    isAuthenticated,
+  });
 
-  const [showCreatePost, setShowCreatePost] = useState(false);
-  const [isCreatingPost, setIsCreatingPost] = useState(false);
-
-  // Create post form state
-  const [postContent, setPostContent] = useState("");
-  const [postType, setPostType] = useState<"text" | "image" | "video">("text");
-  const [postFile, setPostFile] = useState<File | null>(null);
-  const [postRequiredTokens, setPostRequiredTokens] = useState("0");
-  const [filePreview, setFilePreview] = useState<string | null>(null);
+  // Create post hook
+  const {
+    postContent,
+    setPostContent,
+    postType,
+    setPostType,
+    postFile,
+    postRequiredTokens,
+    setPostRequiredTokens,
+    filePreview,
+    showCreatePost,
+    setShowCreatePost,
+    handleFileChange,
+    handleCreatePost,
+    isCreatingPost,
+  } = useCreatePost({
+    creatorAddress: creatorAddress || "",
+    onPostCreated: addPost,
+  });
 
   const isOwnProfile = user?.creatorAddress === creatorAddress;
+  const creator = mockCreator;
 
-  // Fetch posts from backend API
-  const fetchPosts = useCallback(async (page: number, isInitialLoad: boolean = false) => {
-    if (!creatorAddress || !isAuthenticated) return;
-
-    if (isInitialLoad) {
-      setIsLoadingPosts(true);
-    } else {
-      setIsLoadingMore(true);
-    }
-
-    try {
-      const response = await axios.get(
-        `${import.meta.env.VITE_BACKEND_URL}/creator/${creatorAddress}/posts`,
-        {
-          params: { page, limit: 10 },
-          withCredentials: true,
-        }
-      );
-
-      const { posts: fetchedPosts, pagination } = response.data;
-
-      // Map backend response to frontend Post type
-      const mappedPosts: Post[] = fetchedPosts.map((post: any) => ({
-        id: post.id,
-        creatorAddress: post.creatorAddress,
-        content: post.isLocked ? null : post.content,
-        requiredTokens: Number(post.tokenThreshold),
-        createdAt: new Date(post.createdAt),
-        type: post.contentType.toLowerCase() as "text" | "image" | "video",
-        isLocked: post.isLocked,
-      }));
-
-      if (isInitialLoad) {
-        setPosts(mappedPosts);
-      } else {
-        setPosts((prev) => [...prev, ...mappedPosts]);
-      }
-
-      setHasNextPage(pagination.hasNextPage);
-      setCurrentPage(page);
-    } catch (error: any) {
-      console.error("Error fetching posts:", error);
-      // Only show error toast if it's not a 404 (creator not found)
-      if (error.response?.status !== 404) {
-        toast.error("Failed to load posts");
-      }
-    } finally {
-      setIsLoadingPosts(false);
-      setIsLoadingMore(false);
-    }
-  }, [creatorAddress, isAuthenticated]);
-
-  // Initial posts fetch
+  // Update user balance when token balance is fetched
   useEffect(() => {
-    if (isAuthenticated && creatorAddress) {
-      fetchPosts(1, true);
-    }
-  }, [isAuthenticated, creatorAddress, fetchPosts]);
-
-  // Infinite scroll detection using Intersection Observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const target = entries[0];
-        if (target.isIntersecting && hasNextPage && !isLoadingMore && !isLoadingPosts) {
-          fetchPosts(currentPage + 1, false);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    const currentTrigger = loadMoreTriggerRef.current;
-    if (currentTrigger) {
-      observer.observe(currentTrigger);
-    }
-
-    return () => {
-      if (currentTrigger) {
-        observer.unobserve(currentTrigger);
-      }
-    };
-  }, [hasNextPage, isLoadingMore, isLoadingPosts, currentPage, fetchPosts]);
-
-  useEffect(() => { 
     if (getUserBalance) {
       setUserBalance(getUserBalance.value.uiAmount);
     }
-  },[getUserBalance])
-
-  const handleBuyTokens = async () => {
-    if (!buyAmount || !isAuthenticated || !tokenDetails) return;
-
-    try {
-      const tx = await buyTokenMutation.mutateAsync({
-        buyTokenAmount: new BN(Number(buyAmount)),
-        creatorAddress: new PublicKey(mockCreator.pubkey.toBase58()),
-        tokenDecimal: tokenDetails.decimals,
-        tokenMint: tokenDetails.address
-      });
-      queryClient.invalidateQueries({ queryKey: ["token-details"] });
-      console.log("User bought token :", tx);
-      setUserBalance((prev) => prev + Number(buyAmount));
-      setBuyAmount("");
-    } catch (error) {
-      console.error("Error buying tokens:", error);
-      // Show error toast
-    }
-  };
-
-  const handleSellTokens = async () => {
-    if (!sellAmount || !isAuthenticated) return;
-
-    try {
-      await sellTokenMutation.mutateAsync({
-        sellTokenAmount: new BN(Number(sellAmount)),
-        creatorAddress: new PublicKey(mockCreator.pubkey.toBase58()),
-        tokenDecimal: tokenDetails.decimals,
-      });
-      queryClient.invalidateQueries({ queryKey: ["token-details"] });
-      setUserBalance((prev) => prev - Number(sellAmount));
-      setSellAmount("");
-    } catch (error) {
-      console.error("Error selling tokens:", error);
-      // Show error toast
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPostFile(file);
-      // Create preview for images
-      if (file.type.startsWith("image/")) {
-        const reader = new FileReader();
-        reader.onload = (e) => setFilePreview(e.target?.result as string);
-        reader.readAsDataURL(file);
-      } else if (file.type.startsWith("video/")) {
-        const url = URL.createObjectURL(file);
-        setFilePreview(url);
-      }
-    }
-  };
-
-  const handleCreatePost = async () => {
-    if (!postContent.trim()) return;
-
-    setIsCreatingPost(true);
-
-    try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/creator/post`,
-        {
-          content: postContent,
-          tokenThreshold: Number(postRequiredTokens),
-        },
-        { withCredentials: true }
-      );
-
-      const { post: createdPost } = response.data;
-
-      // Map backend response to frontend Post type
-      // Not accepting image and video types for now
-      const newPost: Post = {
-        id: createdPost.id,
-        creatorAddress: createdPost.creatorAddress,
-        content: createdPost.contentUrl,
-        requiredTokens: Number(createdPost.tokenThreshold),
-        createdAt: new Date(createdPost.createdAt),
-        type: "text",
-      };
-
-      setPosts((prev) => [newPost, ...prev]);
-
-      // Reset form
-      setPostContent("");
-      setPostType("text");
-      setPostFile(null);
-      setFilePreview(null);
-      setPostRequiredTokens("0");
-      setShowCreatePost(false);
-
-      toast.success("Post created successfully!");
-    } catch (error: any) {
-      console.error("Error creating post:", error);
-      toast.error(error.response?.data?.error || "Failed to create post. Please try again.");
-    } finally {
-      setIsCreatingPost(false);
-    }
-  };
-
-  const resetCreatePostForm = () => {
-    setPostContent("");
-    setPostType("text");
-    setPostFile(null);
-    setFilePreview(null);
-    setPostRequiredTokens("0");
-  };
+  }, [getUserBalance, setUserBalance]);
 
   const canViewPost = (post: Post) => {
-    if ('isLocked' in post) {
+    if ("isLocked" in post) {
       return !post.isLocked;
     }
     // Fallback for newly created posts (before API refresh)
@@ -489,11 +278,7 @@ export default function CreatorProfile() {
                       {!isBuyingCostLoading && buyingCost && (
                         <span>
                           {" "}
-                          Cost:{" "}
-                          {(
-                            new BN(buyingCost).toNumber() / LAMPORTS_PER_SOL
-                          ).toFixed(4)}{" "}
-                          SOL
+                          Cost: {formatSolAmount(buyingCost)} SOL
                         </span>
                       )}
                     </p>
@@ -527,14 +312,7 @@ export default function CreatorProfile() {
                     <p className="text-xs text-muted-foreground">
                       {isSellingCostLoading && <span>Price loading...</span>}
                       {!isSellingCostLoading && sellingReturn && (
-                        <span>
-                          {" "}
-                          Cost:{" "}
-                          {(
-                            sellingReturn.toNumber() / LAMPORTS_PER_SOL
-                          ).toFixed(4)}{" "}
-                          SOL
-                        </span>
+                        <span> Cost: {formatSolAmount(sellingReturn)} SOL</span>
                       )}
                     </p>
                   </div>
@@ -562,13 +340,7 @@ export default function CreatorProfile() {
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">Content Feed</h2>
               {isOwnProfile && (
-                <Dialog
-                  open={showCreatePost}
-                  onOpenChange={(open) => {
-                    setShowCreatePost(open);
-                    if (!open) resetCreatePostForm();
-                  }}
-                >
+                <Dialog open={showCreatePost} onOpenChange={setShowCreatePost}>
                   <DialogTrigger asChild>
                     <Button variant="default" className="gap-2">
                       <Plus className="h-4 w-4" />
@@ -682,8 +454,7 @@ export default function CreatorProfile() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => {
-                                      setPostFile(null);
-                                      setFilePreview(null);
+                                      // Reset file through the hook
                                     }}
                                   >
                                     <X className="h-4 w-4" />
@@ -748,7 +519,7 @@ export default function CreatorProfile() {
               )}
             </div>
 
-            <div className="space-y-4" ref={postsContainerRef}>
+            <div className="space-y-4">
               {/* Initial loading state */}
               {isLoadingPosts && (
                 <div className="space-y-4">
@@ -786,87 +557,88 @@ export default function CreatorProfile() {
               )}
 
               {/* Posts list */}
-              {!isLoadingPosts && posts.map((post, index) => (
-                <motion.div
-                  key={post.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(index * 0.1, 0.5) }}
-                >
-                  <Card
-                    className={`glass-card ${
-                      !canViewPost(post) ? "opacity-60" : ""
-                    }`}
+              {!isLoadingPosts &&
+                posts.map((post, index) => (
+                  <motion.div
+                    key={post.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index * 0.1, 0.5) }}
                   >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {post.type === "text" && (
-                            <FileText className="h-4 w-4 text-blue-500" />
-                          )}
-                          {post.type === "image" && (
-                            <ImageIcon className="h-4 w-4 text-green-500" />
-                          )}
-                          {post.type === "video" && (
-                            <Video className="h-4 w-4 text-purple-500" />
-                          )}
-                          <span className="text-sm text-muted-foreground">
-                            {post.createdAt.toLocaleDateString()}
-                          </span>
-                        </div>
-                        {post.requiredTokens > 0 && (
-                          <Badge
-                            variant={
-                              canViewPost(post) ? "default" : "destructive"
-                            }
-                          >
-                            {canViewPost(post) ? (
-                              `${post.requiredTokens} tokens required`
-                            ) : (
-                              <>
-                                <Lock className="h-3 w-3 mr-1" /> Locked
-                              </>
+                    <Card
+                      className={`glass-card ${
+                        !canViewPost(post) ? "opacity-60" : ""
+                      }`}
+                    >
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {post.type === "text" && (
+                              <FileText className="h-4 w-4 text-blue-500" />
                             )}
-                          </Badge>
+                            {post.type === "image" && (
+                              <ImageIcon className="h-4 w-4 text-green-500" />
+                            )}
+                            {post.type === "video" && (
+                              <Video className="h-4 w-4 text-purple-500" />
+                            )}
+                            <span className="text-sm text-muted-foreground">
+                              {post.createdAt.toLocaleDateString()}
+                            </span>
+                          </div>
+                          {post.requiredTokens > 0 && (
+                            <Badge
+                              variant={
+                                canViewPost(post) ? "default" : "destructive"
+                              }
+                            >
+                              {canViewPost(post) ? (
+                                `${post.requiredTokens} tokens required`
+                              ) : (
+                                <>
+                                  <Lock className="h-3 w-3 mr-1" /> Locked
+                                </>
+                              )}
+                            </Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {canViewPost(post) ? (
+                          <div className="space-y-4">
+                            <p>{post.content}</p>
+                            {post.imageUrl && (
+                              <img
+                                src={post.imageUrl}
+                                alt="Post content"
+                                className="rounded-lg w-full max-h-64 object-cover"
+                              />
+                            )}
+                            {post.videoUrl && (
+                              <div className="bg-gradient-card rounded-lg p-4 text-center">
+                                <Video className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                                <p className="text-sm text-muted-foreground">
+                                  Video content available
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8">
+                            <Lock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                            <p className="text-muted-foreground">
+                              Hold at least {post.requiredTokens} tokens to view
+                              this content
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              You currently have {userBalance} tokens
+                            </p>
+                          </div>
                         )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {canViewPost(post) ? (
-                        <div className="space-y-4">
-                          <p>{post.content}</p>
-                          {post.imageUrl && (
-                            <img
-                              src={post.imageUrl}
-                              alt="Post content"
-                              className="rounded-lg w-full max-h-64 object-cover"
-                            />
-                          )}
-                          {post.videoUrl && (
-                            <div className="bg-gradient-card rounded-lg p-4 text-center">
-                              <Video className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                              <p className="text-sm text-muted-foreground">
-                                Video content available
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8">
-                          <Lock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-muted-foreground">
-                            Hold at least {post.requiredTokens} tokens to view
-                            this content
-                          </p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            You currently have {userBalance} tokens
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
 
               {/* Load more infinite scroll logic */}
               <div ref={loadMoreTriggerRef} className="py-4">
