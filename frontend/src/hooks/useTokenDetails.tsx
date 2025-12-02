@@ -76,14 +76,12 @@ const useGetUserTokenDetails = (account: PublicKey) => {
         ownedTokens.map(
           async ({
             tokenMint,
-            tokenOwnerAddress,
+            creatorWallet,
             creatorName,
-            creatorWallet
           }: {
             tokenMint: string;
-            tokenOwnerAddress: string;
-            creatorName: string,
-            creatorWallet: string
+            creatorWallet: string;
+            creatorName: string;
           }) => {
             try {
               const balance = await getTokenBalanceOfUser({
@@ -92,10 +90,15 @@ const useGetUserTokenDetails = (account: PublicKey) => {
                 tokenMint: new PublicKey(tokenMint),
               });
 
+              // Skip if balance is 0
+              if (balance.value.uiAmount === 0) {
+                return null;
+              }
+
               const price = await getTokenSellPrice({
                 program,
                 tokensToSell: new BN(balance.value.uiAmount),
-                creatorAddress: new PublicKey(tokenOwnerAddress),
+                creatorAddress: new PublicKey(creatorWallet),
               });
 
               const DOLLAR_PER_SOL = await getSOLPriceUSDT();
@@ -116,13 +119,19 @@ const useGetUserTokenDetails = (account: PublicKey) => {
                 "Error occured while fetching user token details :",
                 error
               );
+              return null;
             }
           }
         )
       );
 
+      // Filter out failed token fetches (null/undefined)
+      const validTokenDetails = tokenDetails.filter(
+        (token): token is NonNullable<typeof token> => token !== null && token !== undefined
+      );
+
       return {
-        tokenDetails,
+        tokenDetails: validTokenDetails,
         totalTransactions: totalOperations,
         totalPortfolioValue,
       };

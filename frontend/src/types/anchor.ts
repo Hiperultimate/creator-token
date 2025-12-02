@@ -33,12 +33,13 @@ export interface Creator {
 export interface Post {
   id: string;
   creatorAddress: string;
-  content: string;
+  content: string | null;
   imageUrl?: string;
   videoUrl?: string;
   requiredTokens: number;
   createdAt: Date;
   type: 'text' | 'image' | 'video';
+  isLocked?: boolean;
 }
 
 export interface UserProfile {

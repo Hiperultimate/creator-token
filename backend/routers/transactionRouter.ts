@@ -90,26 +90,43 @@ transactionRouter.get("/user-stats", protectedRoute, async (req: any, res) => {
     where: { walletAddress },
     select: {
       tokenMint: true,
-      walletAddress: true,
-      user: {
-        select: {
-          creator: { select: { displayName: true } },
-          walletAddress: true,
-        },
-      },
     },
   });
 
-  return res.json({
-    totalOperations,
-    ownedTokens: ownedTokens.map((t) => {
+  // Fetch creator details for each token mint
+  const ownedTokensWithCreator = await Promise.all(
+    ownedTokens.map(async (t) => {
+      // Find the creator who owns this token mint
+      const creatorToken = await prisma.creatorToken.findUnique({
+        where: { tokenMintAddress: t.tokenMint },
+        include: {
+          creator: {
+            select: {
+              displayName: true,
+              creatorAddress: true,
+            },
+          },
+        },
+      });
+
+      if (!creatorToken || !creatorToken.creator) {
+        return null;
+      }
+
       return {
         tokenMint: t.tokenMint,
-        tokenOwnerAddress: t.walletAddress,
-        creatorName: t.user.creator?.displayName,
-        creatorWallet: t.user.walletAddress
+        creatorWallet: creatorToken.creatorAddress,
+        creatorName: creatorToken.creator.displayName,
       };
-    }),
+    })
+  );
+
+  // Filter out tokens where creator wasn't found
+  const validTokens = ownedTokensWithCreator.filter((t) => t !== null);
+
+  return res.json({
+    totalOperations,
+    ownedTokens: validTokens,
   });
 });
 

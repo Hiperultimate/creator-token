@@ -163,7 +163,7 @@ export default function Home() {
             <CardContent>
               <div className="space-y-4">
                 {isLoading && <Skeleton className="h-12 w-full"/>}
-                {isSuccess && isSuccess && userTokenDetails && userTokenDetails.tokenDetails.map((token, index) => (
+                {isSuccess && userTokenDetails && userTokenDetails.tokenDetails.map((token, index) => (
                   <motion.div
                     key={token}
                     initial={{ opacity: 0, x: -20 }}

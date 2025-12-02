@@ -23,3 +23,8 @@ export const creatorAddSchema = z.object({
   basePrice: z.coerce.bigint(),
   slope: z.coerce.bigint(),
 });
+
+export const postCreateSchema = z.object({
+  content: z.string().min(1, "Content is required").max(5000, "Content must be less than 5000 characters"),
+  tokenThreshold: z.coerce.bigint().nonnegative("Token threshold must be non-negative"),
+});

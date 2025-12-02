@@ -9,7 +9,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:reset":"prisma db push --force-reset"
+    "db:reset": "prisma db push --force-reset"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.16.3",
+    "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.4",
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,10 +27,13 @@ import {
   ArrowDown,
   Upload,
   X,
+  Loader2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import useCreatorTokenProgramFns from "@/hooks/useCreatorTokenProgramFns";
 import { useWallet } from "@solana/wallet-adapter-react";
+import axios from "axios";
+import { toast } from "sonner";
 import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import useTokenDetails from "@/hooks/useTokenDetails";
@@ -116,10 +119,18 @@ export default function CreatorProfile() {
     useGetTokenBalance({ tokenMint: tokenDetails && tokenDetails.address });
   
   const [creator, setCreator] = useState<Creator | null>(mockCreator);
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [userBalance, setUserBalance] = useState(0);
   const [buyAmount, setBuyAmount] = useState("");
   const [sellAmount, setSellAmount] = useState("");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const postsContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
   const { data: buyingCost, isLoading: isBuyingCostLoading } =
     useBuyingCostQuery(
@@ -134,6 +145,7 @@ export default function CreatorProfile() {
     );
 
   const [showCreatePost, setShowCreatePost] = useState(false);
+  const [isCreatingPost, setIsCreatingPost] = useState(false);
 
   // Create post form state
   const [postContent, setPostContent] = useState("");
@@ -143,6 +155,89 @@ export default function CreatorProfile() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
 
   const isOwnProfile = user?.creatorAddress === creatorAddress;
+
+  // Fetch posts from backend API
+  const fetchPosts = useCallback(async (page: number, isInitialLoad: boolean = false) => {
+    if (!creatorAddress || !isAuthenticated) return;
+
+    if (isInitialLoad) {
+      setIsLoadingPosts(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+
+    try {
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/creator/${creatorAddress}/posts`,
+        {
+          params: { page, limit: 10 },
+          withCredentials: true,
+        }
+      );
+
+      const { posts: fetchedPosts, pagination } = response.data;
+
+      // Map backend response to frontend Post type
+      const mappedPosts: Post[] = fetchedPosts.map((post: any) => ({
+        id: post.id,
+        creatorAddress: post.creatorAddress,
+        content: post.isLocked ? null : post.content,
+        requiredTokens: Number(post.tokenThreshold),
+        createdAt: new Date(post.createdAt),
+        type: post.contentType.toLowerCase() as "text" | "image" | "video",
+        isLocked: post.isLocked,
+      }));
+
+      if (isInitialLoad) {
+        setPosts(mappedPosts);
+      } else {
+        setPosts((prev) => [...prev, ...mappedPosts]);
+      }
+
+      setHasNextPage(pagination.hasNextPage);
+      setCurrentPage(page);
+    } catch (error: any) {
+      console.error("Error fetching posts:", error);
+      // Only show error toast if it's not a 404 (creator not found)
+      if (error.response?.status !== 404) {
+        toast.error("Failed to load posts");
+      }
+    } finally {
+      setIsLoadingPosts(false);
+      setIsLoadingMore(false);
+    }
+  }, [creatorAddress, isAuthenticated]);
+
+  // Initial posts fetch
+  useEffect(() => {
+    if (isAuthenticated && creatorAddress) {
+      fetchPosts(1, true);
+    }
+  }, [isAuthenticated, creatorAddress, fetchPosts]);
+
+  // Infinite scroll detection using Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const target = entries[0];
+        if (target.isIntersecting && hasNextPage && !isLoadingMore && !isLoadingPosts) {
+          fetchPosts(currentPage + 1, false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTrigger = loadMoreTriggerRef.current;
+    if (currentTrigger) {
+      observer.observe(currentTrigger);
+    }
+
+    return () => {
+      if (currentTrigger) {
+        observer.unobserve(currentTrigger);
+      }
+    };
+  }, [hasNextPage, isLoadingMore, isLoadingPosts, currentPage, fetchPosts]);
 
   useEffect(() => { 
     if (getUserBalance) {
@@ -207,19 +302,29 @@ export default function CreatorProfile() {
   const handleCreatePost = async () => {
     if (!postContent.trim()) return;
 
+    setIsCreatingPost(true);
+
     try {
-      // TODO: Implement actual backend API call to create post
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/creator/post`,
+        {
+          content: postContent,
+          tokenThreshold: Number(postRequiredTokens),
+        },
+        { withCredentials: true }
+      );
+
+      const { post: createdPost } = response.data;
+
+      // Map backend response to frontend Post type
+      // Not accepting image and video types for now
       const newPost: Post = {
-        id: Date.now().toString(),
-        creatorAddress: creatorAddress || "",
-        content: postContent,
-        requiredTokens: Number(postRequiredTokens),
-        createdAt: new Date(),
-        type: postType,
-        ...(postType === "image" &&
-          postFile && { imageUrl: filePreview || undefined }),
-        ...(postType === "video" &&
-          postFile && { videoUrl: filePreview || undefined }),
+        id: createdPost.id,
+        creatorAddress: createdPost.creatorAddress,
+        content: createdPost.contentUrl,
+        requiredTokens: Number(createdPost.tokenThreshold),
+        createdAt: new Date(createdPost.createdAt),
+        type: "text",
       };
 
       setPosts((prev) => [newPost, ...prev]);
@@ -232,11 +337,12 @@ export default function CreatorProfile() {
       setPostRequiredTokens("0");
       setShowCreatePost(false);
 
-      // Show success toast
-      console.log("Post created successfully");
-    } catch (error) {
+      toast.success("Post created successfully!");
+    } catch (error: any) {
       console.error("Error creating post:", error);
-      // Show error toast
+      toast.error(error.response?.data?.error || "Failed to create post. Please try again.");
+    } finally {
+      setIsCreatingPost(false);
     }
   };
 
@@ -249,6 +355,10 @@ export default function CreatorProfile() {
   };
 
   const canViewPost = (post: Post) => {
+    if ('isLocked' in post) {
+      return !post.isLocked;
+    }
+    // Fallback for newly created posts (before API refresh)
     return post.requiredTokens <= userBalance || isOwnProfile;
   };
 
@@ -314,7 +424,7 @@ export default function CreatorProfile() {
                       {tokenDetailsLoading ? (
                         <Skeleton className="h-8 w-full max-w-[10rem]" />
                       ) : (
-                        tokenSupply.toLocaleString()
+                        (tokenSupply ?? 0).toLocaleString()
                       )}
                     </div>
                     <div className="text-sm text-muted-foreground">
@@ -326,7 +436,7 @@ export default function CreatorProfile() {
                       {tokenDetailsLoading ? (
                         <Skeleton className="h-8 w-full max-w-[10rem]" />
                       ) : (
-                        tokenHolderCount.toLocaleString()
+                        (tokenHolderCount ?? 0).toLocaleString()
                       )}
                     </div>
                     <div className="text-sm text-muted-foreground">Holders</div>
@@ -612,6 +722,7 @@ export default function CreatorProfile() {
                           type="button"
                           variant="outline"
                           onClick={() => setShowCreatePost(false)}
+                          disabled={isCreatingPost}
                         >
                           Cancel
                         </Button>
@@ -619,9 +730,16 @@ export default function CreatorProfile() {
                           type="button"
                           variant="default"
                           onClick={handleCreatePost}
-                          disabled={!postContent.trim()}
+                          disabled={!postContent.trim() || isCreatingPost}
                         >
-                          Create Post
+                          {isCreatingPost ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                              Creating...
+                            </>
+                          ) : (
+                            "Create Post"
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -630,13 +748,50 @@ export default function CreatorProfile() {
               )}
             </div>
 
-            <div className="space-y-4">
-              {posts.map((post, index) => (
+            <div className="space-y-4" ref={postsContainerRef}>
+              {/* Initial loading state */}
+              {isLoadingPosts && (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i} className="glass-card">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center justify-between">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-6 w-24" />
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <Skeleton className="h-4 w-full mb-2" />
+                        <Skeleton className="h-4 w-3/4 mb-2" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!isLoadingPosts && posts.length === 0 && (
+                <Card className="glass-card">
+                  <CardContent className="p-8 text-center">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-semibold mb-2">No posts yet</h3>
+                    <p className="text-muted-foreground">
+                      {isOwnProfile
+                        ? "Create your first post to share with your community!"
+                        : "This creator hasn't posted any content yet."}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Posts list */}
+              {!isLoadingPosts && posts.map((post, index) => (
                 <motion.div
                   key={post.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  transition={{ delay: Math.min(index * 0.1, 0.5) }}
                 >
                   <Card
                     className={`glass-card ${
@@ -712,6 +867,23 @@ export default function CreatorProfile() {
                   </Card>
                 </motion.div>
               ))}
+
+              {/* Load more infinite scroll logic */}
+              <div ref={loadMoreTriggerRef} className="py-4">
+                {isLoadingMore && (
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Loading more posts...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* End of posts indicator */}
+              {!isLoadingPosts && !hasNextPage && posts.length > 0 && (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  You've reached the end
+                </div>
+              )}
             </div>
           </div>
         </div>
