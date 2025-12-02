@@ -87,7 +87,7 @@ export default function CreateIdentity() {
           updateUser({
             isCreator: true,
             name: name,
-            creatorAddress: "new-creator-id", // This would be returned from the anchor call
+            creatorAddress: userPublicKey.toBase58(),
           });
 
           // Redirect to create token page

@@ -69,7 +69,33 @@ creatorRouter.post("/add", protectedRoute, async (req: any, res) => {
     });
   });
 
-  return res.status(200).json({ creator, message: "Creator profile created successfully" });
+  return res
+    .status(200)
+    .json({ creator, message: "Creator profile created successfully" });
 });
+
+// add protected route after testing
+// creatorRouter.get("/trending", async (req, res) => {
+//   const last100Transactions = await prisma.transaction.findMany({
+//     orderBy: {
+//       timestamp: "desc",
+//     },
+//     take: 100,
+//   });
+
+//   // Reduce the above array and rank them by the occurrence of tokenMint
+//   const tokenMintCount: Record<string, number> = last100Transactions.reduce((accumulator: Record<string, number>, currentValue) => {
+//     const mint = currentValue.tokenMint;
+//     if (mint in Object.keys(accumulator)) {
+//       accumulator[mint] += 1;
+//     } else {
+//       accumulator[mint] = 1; // Start with 1 for new mint
+//     }
+//     return accumulator;
+//   }, {} as Record<string, number>);
+
+//   console.log("Data : ", last100Transactions);
+
+// });
 
 export default creatorRouter;
