@@ -162,14 +162,6 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       const buyTokenDecimals = sellTokenAmount.mul(
         new BN(10).pow(tokenDecimalBN)
       );
-      const sellTokenResponse = await program.methods
-        .sellCreatorToken(buyTokenDecimals)
-        .accounts({
-          seller: account,
-          creator: creatorAddress,
-          tokenProgram: TOKEN_2022_PROGRAM_ID,
-        })
-        .rpc();
 
       const balance = await getTokenBalanceOfUser({
         connection: program.provider.connection,
@@ -178,10 +170,13 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
       });
       const isHoldingTokenZero = balance.value.uiAmount === 0;
 
+      // derive token mint from creatorAddress
+      const tokenMint = await getCreatorTokenMint({ mintOwnerAddress : creatorAddress, programId: program.programId, connection: program.provider.connection });
+
       await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/transaction/add`,
         {
-          tokenMint: creatorAddress.toBase58(),
+          tokenMint: tokenMint.address.toBase58(),
           type: "sell",
           amount: buyTokenDecimals.toString(),
           walletAddress: account.toBase58(),
@@ -189,6 +184,15 @@ function useCreatorTokenProgramFns({ account }: { account: PublicKey }) {
         },
         { withCredentials: true }
       );
+
+      const sellTokenResponse = await program.methods
+      .sellCreatorToken(buyTokenDecimals)
+      .accounts({
+        seller: account,
+        creator: creatorAddress,
+        tokenProgram: TOKEN_2022_PROGRAM_ID,
+      })
+      .rpc();
 
       return sellTokenResponse;
     },
