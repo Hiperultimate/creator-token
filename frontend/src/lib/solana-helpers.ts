@@ -86,6 +86,18 @@ export const getCreatorTokenMint = async ({
   return await getMint(connection, mintPda, "confirmed", TOKEN_2022_PROGRAM_ID);
 };
 
+export const getCreatorTokenDetails = async ({ creatorAddress }: { creatorAddress: PublicKey }) : Promise<{
+  creatorAddress : string,
+  displayName : string,
+  bio : string | null,
+  identityAddress : string,
+  tokenMintAddress : string,
+  createdAt : Date
+}> => {
+  const creatorTokenDetails = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/creator/${creatorAddress.toBase58()}`);
+  return creatorTokenDetails.data;
+};
+
 export const getTokenPrice = async ({
   program,
   tokensToBuy,

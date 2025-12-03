@@ -38,23 +38,6 @@ import { useCreatorPosts } from "@/hooks/useCreatorPosts";
 import { useTokenTrading, formatSolAmount } from "@/hooks/useTokenTrading";
 import { useCreatePost } from "@/hooks/useCreatePost";
 
-// Mock creator data
-const mockCreator: Creator = {
-  pubkey: {
-    toBase58: () => "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
-  } as any,
-  identity: {
-    creator: {
-      toBase58: () => "GGsw1CyeMFkH7eo2ta8p2DgzzWApzFLkX1D4Q3HXsFHR",
-    } as any,
-    creatorName: "Hiperultimate",
-    proofUrl:
-      "Crypto artist and NFT creator building the future of digital art. Sharing exclusive insights, tutorials, and behind-the-scenes content.",
-  },
-  currentPrice: 0.15,
-  totalSupply: 10000,
-  holdersCount: 145,
-};
 
 export default function CreatorProfile() {
   const { creatorAddress } = useParams<{ creatorAddress: string }>();
@@ -62,12 +45,13 @@ export default function CreatorProfile() {
   const { user, isAuthenticated } = useAuth();
   const { publicKey: userAddress } = useWallet();
 
-  const creatorPubkey = new PublicKey(mockCreator.pubkey.toBase58());
+  const creatorPubkey = new PublicKey(creatorAddress);
 
   // Token details
   const {
     tokenDetails,
     tokenSupply,
+    creatorTokenDetails,
     currentTokenPrice,
     tokenHolderCount,
     isLoading: tokenDetailsLoading,
@@ -134,7 +118,7 @@ export default function CreatorProfile() {
   });
 
   const isOwnProfile = user?.creatorAddress === creatorAddress;
-  const creator = mockCreator;
+  const creator = creatorTokenDetails;
 
   // Update user balance when token balance is fetched
   useEffect(() => {
@@ -150,6 +134,68 @@ export default function CreatorProfile() {
     // Fallback for newly created posts (before API refresh)
     return post.requiredTokens <= userBalance || isOwnProfile;
   };
+
+  // Show loading state while fetching creator details
+  if (tokenDetailsLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="space-y-8">
+          {/* Profile Header Skeleton */}
+          <Card className="glass-card">
+            <CardContent className="p-8">
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+                <Skeleton className="w-24 h-24 rounded-full" />
+                <div className="flex-1 space-y-4 w-full">
+                  <div>
+                    <Skeleton className="h-8 w-48 mb-2" />
+                    <Skeleton className="h-4 w-full max-w-md" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="flex flex-col items-center">
+                      <Skeleton className="h-8 w-24 mb-1" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <Skeleton className="h-8 w-24 mb-1" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <Skeleton className="h-8 w-24 mb-1" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Trading & Content Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1">
+              <Card className="glass-card">
+                <CardContent className="p-6 space-y-4">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </CardContent>
+              </Card>
+            </div>
+            <div className="lg:col-span-2 space-y-4">
+              <Skeleton className="h-8 w-40" />
+              {[1, 2].map((i) => (
+                <Card key={i} className="glass-card">
+                  <CardContent className="p-6">
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!creator) {
     return (
@@ -181,17 +227,17 @@ export default function CreatorProfile() {
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
               <div className="w-24 h-24 bg-gradient-primary rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-3xl">
-                  {creator.identity.creatorName.charAt(0)}
+                  {creator.displayName.charAt(0)}
                 </span>
               </div>
 
               <div className="flex-1 space-y-4">
                 <div>
                   <h1 className="text-3xl font-bold mb-2">
-                    {creator.identity.creatorName}
+                    {creator.displayName}
                   </h1>
                   <p className="text-muted-foreground">
-                    {creator.identity.proofUrl}
+                    {creator.bio}
                   </p>
                 </div>
 

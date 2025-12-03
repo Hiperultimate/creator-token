@@ -9,6 +9,7 @@ import {
   getTokenBalanceOfUser,
   getTokenSellPrice,
   getSOLPriceUSDT,
+  getCreatorTokenDetails,
 } from "@/lib/solana-helpers";
 import { BN } from "@coral-xyz/anchor";
 import { TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
@@ -21,7 +22,7 @@ const useTokenDetails = (ownerAddress: PublicKey) => {
   const { data, ...rest } = useQuery({
     queryKey: ["token-details", ownerAddress],
     queryFn: async () => {
-      const [tokenDetails, oneTokenCost] = await Promise.all([
+      const [tokenDetails, oneTokenCost, creatorTokenDetails] = await Promise.all([
         getCreatorTokenMint({
           mintOwnerAddress: ownerAddress,
           programId,
@@ -32,6 +33,7 @@ const useTokenDetails = (ownerAddress: PublicKey) => {
           creatorAddress: ownerAddress,
           tokensToBuy: new BN(1),
         }),
+        getCreatorTokenDetails({ creatorAddress: ownerAddress })
       ]);
 
       const tokenHolderCount = await getTokenHoldersCount({
@@ -46,6 +48,7 @@ const useTokenDetails = (ownerAddress: PublicKey) => {
         currentTokenPrice: solPrice,
         tokenHolderCount,
         tokenSupply: tokenDetails.supply / 10n ** BigInt(tokenDetails.decimals),
+        creatorTokenDetails: creatorTokenDetails,
       };
     },
   });

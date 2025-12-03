@@ -77,6 +77,34 @@ creatorRouter.post("/add", protectedRoute, async (req: any, res) => {
     .json({ creator, message: "Creator profile created successfully" });
 });
 
+creatorRouter.get("/:creatorAddress", async (req, res) => {
+  const { creatorAddress } = req.params;
+
+  const creator = await prisma.creator.findUnique({
+    where: { creatorAddress },
+    include: {
+      token: {
+        select: {
+          tokenMintAddress: true,
+        },
+      },
+    },
+  });
+
+  if (!creator) {
+    return res.status(404).json({ error: "Creator not found" });
+  }
+
+  return res.status(200).json({
+    creatorAddress: creator.creatorAddress,
+    displayName: creator.displayName,
+    bio: creator.bio,
+    identityAddress: creator.identityAddress,
+    tokenMintAddress: creator.token.tokenMintAddress,
+    createdAt: creator.createdAt,
+  });
+});
+
 // add protected route after testing
 // creatorRouter.get("/trending", async (req, res) => {
 //   const last100Transactions = await prisma.transaction.findMany({
