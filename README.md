@@ -170,4 +170,3 @@ anchor test
 Planned features for future releases:
 
 - Allow creators to upload images and videos for posts
-- Display trending creators
