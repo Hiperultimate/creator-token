@@ -32,7 +32,7 @@ import { motion } from "framer-motion";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import useTokenDetails from "@/hooks/useTokenDetails";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CreatorProfileSkeleton, PostCardSkeleton, StatValueSkeleton } from "@/components/skeletons";
 import { useGetTokenBalance } from "@/hooks/userDetails";
 import { useCreatorPosts } from "@/hooks/useCreatorPosts";
 import { useTokenTrading, formatSolAmount } from "@/hooks/useTokenTrading";
@@ -137,64 +137,7 @@ export default function CreatorProfile() {
 
   // Show loading state while fetching creator details
   if (tokenDetailsLoading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="space-y-8">
-          {/* Profile Header Skeleton */}
-          <Card className="glass-card">
-            <CardContent className="p-8">
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                <Skeleton className="w-24 h-24 rounded-full" />
-                <div className="flex-1 space-y-4 w-full">
-                  <div>
-                    <Skeleton className="h-8 w-48 mb-2" />
-                    <Skeleton className="h-4 w-full max-w-md" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="flex flex-col items-center">
-                      <Skeleton className="h-8 w-24 mb-1" />
-                      <Skeleton className="h-4 w-20" />
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <Skeleton className="h-8 w-24 mb-1" />
-                      <Skeleton className="h-4 w-20" />
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <Skeleton className="h-8 w-24 mb-1" />
-                      <Skeleton className="h-4 w-20" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Trading & Content Skeleton */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1">
-              <Card className="glass-card">
-                <CardContent className="p-6 space-y-4">
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </CardContent>
-              </Card>
-            </div>
-            <div className="lg:col-span-2 space-y-4">
-              <Skeleton className="h-8 w-40" />
-              {[1, 2].map((i) => (
-                <Card key={i} className="glass-card">
-                  <CardContent className="p-6">
-                    <Skeleton className="h-4 w-full mb-2" />
-                    <Skeleton className="h-4 w-3/4" />
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <CreatorProfileSkeleton />;
   }
 
   if (!creator) {
@@ -245,7 +188,7 @@ export default function CreatorProfile() {
                   <div>
                     <div className="text-2xl font-bold text-success animate-counter flex flex-col items-center">
                       {tokenDetailsLoading ? (
-                        <Skeleton className="h-8 w-full max-w-[10rem]" />
+                        <StatValueSkeleton />
                       ) : (
                         <>{currentTokenPrice} SOL</>
                       )}
@@ -257,7 +200,7 @@ export default function CreatorProfile() {
                   <div>
                     <div className="text-2xl font-bold animate-counter flex flex-col items-center">
                       {tokenDetailsLoading ? (
-                        <Skeleton className="h-8 w-full max-w-[10rem]" />
+                        <StatValueSkeleton />
                       ) : (
                         (tokenSupply ?? 0).toLocaleString()
                       )}
@@ -269,7 +212,7 @@ export default function CreatorProfile() {
                   <div>
                     <div className="text-2xl font-bold text-accent animate-counter flex flex-col items-center">
                       {tokenDetailsLoading ? (
-                        <Skeleton className="h-8 w-full max-w-[10rem]" />
+                        <StatValueSkeleton />
                       ) : (
                         (tokenHolderCount ?? 0).toLocaleString()
                       )}
@@ -579,25 +522,7 @@ export default function CreatorProfile() {
 
             <div className="space-y-4">
               {/* Initial loading state */}
-              {isLoadingPosts && (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <Card key={i} className="glass-card">
-                      <CardHeader className="pb-4">
-                        <div className="flex items-center justify-between">
-                          <Skeleton className="h-4 w-32" />
-                          <Skeleton className="h-6 w-24" />
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <Skeleton className="h-4 w-full mb-2" />
-                        <Skeleton className="h-4 w-3/4 mb-2" />
-                        <Skeleton className="h-4 w-1/2" />
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+              {isLoadingPosts && <PostCardSkeleton count={3} />}
 
               {/* Empty state */}
               {!isLoadingPosts && posts.length === 0 && (

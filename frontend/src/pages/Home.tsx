@@ -7,7 +7,7 @@ import { Wallet, TrendingUp, Users, ArrowUpRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useGetUserTokenDetails } from "@/hooks/useTokenDetails";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { StatValueSkeleton, TokenHoldingSkeleton } from "@/components/skeletons";
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth();
@@ -81,7 +81,7 @@ export default function Home() {
               <CardContent>
                 <div className="text-2xl font-bold">
                   {isLoading ? (
-                    <Skeleton className="h-8 w-full max-w-[10rem]" />
+                    <StatValueSkeleton />
                   ) : (
                     <>
                       ${userTokenDetails.totalPortfolioValue.toLocaleString()}
@@ -108,7 +108,7 @@ export default function Home() {
               <CardContent>
                 <div className="text-2xl font-bold">
                   {isLoading ? (
-                    <Skeleton className="h-8 w-full max-w-[10rem]" />
+                    <StatValueSkeleton />
                   ) : (
                     <>
                       {userTokenDetails.tokenDetails.length}
@@ -137,7 +137,7 @@ export default function Home() {
               <CardContent>
                 <div className="text-2xl font-bold">
                   {isLoading ? (
-                    <Skeleton className="h-8 w-full max-w-[10rem]" />
+                    <StatValueSkeleton />
                   ) : (
                     <>{userTokenDetails.totalTransactions}</>
                   )}
@@ -162,7 +162,7 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {isLoading && <Skeleton className="h-12 w-full"/>}
+                {isLoading && <TokenHoldingSkeleton count={2} />}
                 {isSuccess && userTokenDetails && userTokenDetails.tokenDetails.map((token, index) => (
                   <motion.div
                     key={token}
