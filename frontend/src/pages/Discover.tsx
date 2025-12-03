@@ -1,76 +1,61 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Creator } from "@/types/anchor";
 import { Search, TrendingUp, Users, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { checkUserBalance, requestAirdrop } from "@/lib/solana-helpers";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CreatorCardSkeleton } from "@/components/skeletons";
+import axios from "axios";
 
-// Mock creators data - replace with actual data fetching
-const mockCreators: Creator[] = [
-  {
-    pubkey: { toBase58: () => "Creator1" } as any,
-    identity: {
-      creator: { toBase58: () => "Creator1" } as any,
-      creatorName: "Alice Johnson",
-      proofUrl:
-        "Crypto artist and NFT creator building the future of digital art",
-    },
-    currentPrice: 0.15,
-    totalSupply: 10000,
-    holdersCount: 145,
-  },
-  {
-    pubkey: { toBase58: () => "Creator2" } as any,
-    identity: {
-      creator: { toBase58: () => "Creator2" } as any,
-      creatorName: "Bob Williams",
-      proofUrl:
-        "DeFi educator sharing insights about yield farming and protocols",
-    },
-    currentPrice: 0.08,
-    totalSupply: 25000,
-    holdersCount: 89,
-  },
-  {
-    pubkey: { toBase58: () => "Creator3" } as any,
-    identity: {
-      creator: { toBase58: () => "Creator3" } as any,
-      creatorName: "Carol Smith",
-      proofUrl: "Web3 developer creating tutorials and open-source tools",
-    },
-    currentPrice: 0.22,
-    totalSupply: 5000,
-    holdersCount: 234,
-  },
-];
+// Type for trending creator from API
+interface TrendingCreator {
+  creatorAddress: string;
+  displayName: string;
+  bio: string | null;
+  tokenMintAddress: string;
+  currentPrice: number;
+  totalSupply: number;
+  holdersCount: number;
+  transactionCount: number;
+}
+
+// Fetch trending creators from API
+const fetchTrendingCreators = async (): Promise<TrendingCreator[]> => {
+  const response = await axios.get(
+    `${import.meta.env.VITE_BACKEND_URL}/creator/trending`
+  );
+  return response.data.creators;
+};
 
 export default function Discover() {
-  // Temp
+  // Temp - Airdrop functionality
   const client = useQueryClient();
   const wallet = useWallet();
   const { connection } = useConnection();
-  const { data: balanceInSol, isLoading } = useQuery({
+  const { data: balanceInSol, isLoading: isBalanceLoading } = useQuery({
     queryKey: ["get-balance"],
     queryFn: () => checkUserBalance(wallet.publicKey, connection),
+    enabled: !!wallet.publicKey,
   });
-  // Temp
+
+  // Fetch trending creators
+  const { data: trendingCreators = [], isLoading: isCreatorsLoading } = useQuery({
+    queryKey: ["trending-creators"],
+    queryFn: fetchTrendingCreators,
+    staleTime: 60 * 1000, // Cache for 1 minute
+  });
 
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
 
-  const filteredCreators = mockCreators.filter(
+  const filteredCreators = trendingCreators.filter(
     (creator) =>
-      creator.identity.creatorName
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      creator.identity.proofUrl
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
+      creator.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (creator.bio?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
   );
 
   return (
@@ -80,25 +65,29 @@ export default function Discover() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div>
-          <Button
-            variant="outline"
-            className="w-full mt-auto"
-            onClick={async () => {
-              await requestAirdrop(wallet.publicKey, connection, 5);
-              client.invalidateQueries({ queryKey : ["get-balance"]});
-            }}
-          >
-            Airdrop Sol
-          </Button>
-          {isLoading ? (
-            <div>Loading balance...</div>
-          ) : (
-            <div>
-              <span>User Balance : {balanceInSol} </span>
+        {/* Airdrop Section - Only show when wallet connected */}
+        {wallet.publicKey && (
+          <div className="mb-6 p-4 glass-card rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm text-muted-foreground">Your Balance: </span>
+                <span className="font-semibold">
+                  {isBalanceLoading ? "Loading..." : `${balanceInSol?.toFixed(2) ?? 0} SOL`}
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  await requestAirdrop(wallet.publicKey, connection, 5);
+                  client.invalidateQueries({ queryKey: ["get-balance"] });
+                }}
+              >
+                Airdrop 5 SOL
+              </Button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
         {/* Header */}
         <div className="text-center mb-12">
           <motion.h1
@@ -151,78 +140,83 @@ export default function Discover() {
 
         {/* Creators Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCreators.map((creator, index) => (
-            <motion.div
-              key={creator.pubkey.toBase58()}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.9 + index * 0.1 }}
-            >
-              <Card className="glass-card hover:glow-primary transition-all duration-300 cursor-pointer group h-full flex flex-col">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">
-                          {creator.identity.creatorName.charAt(0)}
-                        </span>
+          {/* Loading State */}
+          {isCreatorsLoading && <CreatorCardSkeleton count={3} />}
+
+          {/* Creators List */}
+          {!isCreatorsLoading &&
+            filteredCreators.map((creator, index) => (
+              <motion.div
+                key={creator.creatorAddress}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9 + index * 0.1 }}
+              >
+                <Card className="glass-card hover:glow-primary transition-all duration-300 cursor-pointer group h-full flex flex-col">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-gradient-primary rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">
+                            {creator.displayName.charAt(0)}
+                          </span>
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg group-hover:text-primary transition-colors">
+                            {creator.displayName}
+                          </CardTitle>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Users className="h-3 w-3" />
+                            {creator.holdersCount} holders
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <CardTitle className="text-lg group-hover:text-primary transition-colors">
-                          {creator.identity.creatorName}
-                        </CardTitle>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Users className="h-3 w-3" />
-                          {creator.holdersCount} holders
+                      <Star className="h-5 w-5 text-muted-foreground group-hover:text-accent transition-colors" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="flex flex-col flex-1">
+                    <div className="space-y-4 pb-4">
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {creator.bio || "No bio available"}
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-1">
+                          <div className="text-muted-foreground">
+                            Current Price
+                          </div>
+                          <div className="font-semibold text-success">
+                            {creator.currentPrice} SOL
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-muted-foreground">
+                            Total Supply
+                          </div>
+                          <div className="font-semibold">
+                            {creator.totalSupply.toLocaleString()}
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <Star className="h-5 w-5 text-muted-foreground group-hover:text-accent transition-colors" />
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col flex-1">
-                  <div className="space-y-4 pb-4">
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {creator.identity.proofUrl}
-                    </p>
 
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-1">
-                        <div className="text-muted-foreground">
-                          Current Price
-                        </div>
-                        <div className="font-semibold text-success">
-                          {creator.currentPrice} SOL
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-muted-foreground">
-                          Total Supply
-                        </div>
-                        <div className="font-semibold">
-                          {creator.totalSupply?.toLocaleString()}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    variant="default"
-                    className="w-full mt-auto"
-                    onClick={() =>
-                      navigate(`/creator/${creator.pubkey.toBase58()}`)
-                    }
-                  >
-                    View Profile
-                  </Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+                    <Button
+                      variant="default"
+                      className="w-full mt-auto"
+                      onClick={() =>
+                        navigate(`/creator/${creator.creatorAddress}`)
+                      }
+                    >
+                      View Profile
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
         </div>
 
         {/* Empty State */}
-        {filteredCreators.length === 0 && (
+        {!isCreatorsLoading && filteredCreators.length === 0 && (
           <motion.div
             className="text-center py-12"
             initial={{ opacity: 0 }}
@@ -230,9 +224,13 @@ export default function Discover() {
             transition={{ delay: 0.5 }}
           >
             <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No creators found</h3>
+            <h3 className="text-xl font-semibold mb-2">
+              {searchQuery ? "No creators found" : "No trending creators yet"}
+            </h3>
             <p className="text-muted-foreground">
-              Try adjusting your search terms or browse all creators
+              {searchQuery
+                ? "Try adjusting your search terms or browse all creators"
+                : "Be the first to create your token and start trending!"}
             </p>
           </motion.div>
         )}

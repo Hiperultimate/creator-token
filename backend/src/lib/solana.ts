@@ -1,4 +1,4 @@
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
 import {
   getAssociatedTokenAddress,
   getMint,
@@ -73,5 +73,54 @@ export const getTokenBalanceOfUser = async ({
     // If ATA doesn't exist, user has 0 balance
     return { balance: BigInt(0), decimals: 6 }; // Default to 6 decimals
   }
+};
+
+/**
+ * Get the number of token holders for a given mint
+ * Note: This is expensive - consider using an indexer like Helius in production
+ */
+export const getTokenHoldersCount = async (tokenMint: PublicKey): Promise<number> => {
+  try {
+    const response = await connection.getProgramAccounts(TOKEN_2022_PROGRAM_ID, {
+      filters: [{ memcmp: { offset: 0, bytes: tokenMint.toBase58() } }],
+    });
+
+    // Filter accounts with non-zero balances
+    const holders = response.filter((accountInfo) => {
+      const balanceData = accountInfo.account.data;
+      const amount = balanceData.readBigUInt64LE(64);
+      return amount > 0n;
+    });
+
+    return holders.length;
+  } catch (error) {
+    console.error("Error fetching token holders count:", error);
+    return 0;
+  }
+};
+
+/**
+ * Calculate token price using bonding curve formula
+ * price = basePrice + (slope * supply)
+ */
+export const calculateTokenPrice = ({
+  basePrice,
+  slope,
+  supply,
+  decimals,
+}: {
+  basePrice: bigint;
+  slope: bigint;
+  supply: bigint;
+  decimals: number;
+}): number => {
+  // Convert supply from raw units to human-readable
+  const supplyInUnits = supply / BigInt(10 ** decimals);
+  
+  // Calculate price in lamports: basePrice + (slope * supply)
+  const priceInLamports = basePrice + (slope * supplyInUnits);
+  
+  // Convert to SOL
+  return Number(priceInLamports) / LAMPORTS_PER_SOL;
 };
 

@@ -4,7 +4,12 @@ import { prisma } from "../src/lib/prisma";
 import { protectedRoute } from "../middleware/protectedRoute";
 import { ContentType } from "../generated/enums";
 import { PublicKey } from "@solana/web3.js";
-import { getTokenBalanceOfUser } from "../src/lib/solana";
+import {
+  getTokenBalanceOfUser,
+  getTokenMintInfo,
+  getTokenHoldersCount,
+  calculateTokenPrice,
+} from "../src/lib/solana";
 
 const creatorRouter = Router();
 
@@ -77,6 +82,103 @@ creatorRouter.post("/add", protectedRoute, async (req: any, res) => {
     .json({ creator, message: "Creator profile created successfully" });
 });
 
+// Get trending creators based on recent transaction activity
+creatorRouter.get("/trending", async (req, res) => {
+  console.log("At least we are running? ");
+  try {
+    // Get the last 100 transactions
+    const last100Transactions = await prisma.transaction.findMany({
+      orderBy: {
+        timestamp: "desc",
+      },
+      take: 100,
+    });
+
+    // If no transactions, return empty array
+    if (last100Transactions.length === 0) {
+      return res.status(200).json({ creators: [] });
+    }
+
+    // Count occurrences of each tokenMint to determine trending
+    const tokenMintCount: Record<string, number> = last100Transactions.reduce(
+      (accumulator: Record<string, number>, tokenDetails) => {
+        const mint = tokenDetails.tokenMint;
+        accumulator[mint] = (accumulator[mint] || 0) + 1;
+        return accumulator;
+      },
+      {}
+    );
+
+    console.log("Checking tokenMintCount : ", tokenMintCount);
+
+    // Sort by count and get top 3
+    const topMints = Object.entries(tokenMintCount)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([mint]) => mint);
+
+    // Fetch creator details for each top mint
+    const trendingCreators = await Promise.all(
+      topMints.map(async (tokenMintAddress) => {
+        // Get creator token record to find creator
+        const creatorToken = await prisma.creatorToken.findUnique({
+          where: { tokenMintAddress },
+          include: {
+            creator: true,
+          },
+        });
+
+        console.log("Checking token mint : ", creatorToken, tokenMintAddress);
+
+        if (!creatorToken || !creatorToken.creator) {
+          return null;
+        }
+
+        const tokenMint = new PublicKey(tokenMintAddress);
+
+        // Fetch on-chain data in parallel
+        const [mintInfo, holdersCount] = await Promise.all([
+          getTokenMintInfo(tokenMint),
+          getTokenHoldersCount(tokenMint),
+        ]);
+
+        // Calculate current price from bonding curve
+        const currentPrice = calculateTokenPrice({
+          basePrice: creatorToken.basePrice,
+          slope: creatorToken.slope,
+          supply: mintInfo.supply,
+          decimals: mintInfo.decimals,
+        });
+
+        // Convert supply to human-readable
+        const totalSupply = Number(mintInfo.supply) / Math.pow(10, mintInfo.decimals);
+
+        return {
+          creatorAddress: creatorToken.creatorAddress,
+          displayName: creatorToken.creator.displayName,
+          bio: creatorToken.creator.bio,
+          tokenMintAddress: tokenMintAddress,
+          currentPrice: Number(currentPrice.toFixed(6)),
+          totalSupply: Math.floor(totalSupply),
+          holdersCount,
+          transactionCount: tokenMintCount[tokenMintAddress],
+        };
+      })
+    );
+
+    // Filter out any null results
+    const validCreators = trendingCreators.filter(
+      (creator): creator is NonNullable<typeof creator> => creator !== null
+    );
+
+    return res.status(200).json({ creators: validCreators });
+  } catch (error) {
+    console.error("Error fetching trending creators:", error);
+    return res.status(500).json({ error: "Failed to fetch trending creators" });
+  }
+});
+
+// Get creator profile by address
 creatorRouter.get("/:creatorAddress", async (req, res) => {
   const { creatorAddress } = req.params;
 
@@ -104,30 +206,6 @@ creatorRouter.get("/:creatorAddress", async (req, res) => {
     createdAt: creator.createdAt,
   });
 });
-
-// add protected route after testing
-// creatorRouter.get("/trending", async (req, res) => {
-//   const last100Transactions = await prisma.transaction.findMany({
-//     orderBy: {
-//       timestamp: "desc",
-//     },
-//     take: 100,
-//   });
-
-//   // Reduce the above array and rank them by the occurrence of tokenMint
-//   const tokenMintCount: Record<string, number> = last100Transactions.reduce((accumulator: Record<string, number>, currentValue) => {
-//     const mint = currentValue.tokenMint;
-//     if (mint in Object.keys(accumulator)) {
-//       accumulator[mint] += 1;
-//     } else {
-//       accumulator[mint] = 1; // Start with 1 for new mint
-//     }
-//     return accumulator;
-//   }, {} as Record<string, number>);
-
-//   console.log("Data : ", last100Transactions);
-
-// });
 
 creatorRouter.post("/post", protectedRoute, async (req: any, res) => {
   const { content, tokenThreshold } = req.body;

@@ -30,6 +30,12 @@ transactionRouter.post("/add", protectedRoute, async (req: any, res) => {
   const { tokenMint, type, amount, walletAddress, isHoldingTokenZero } =
     validInputCheck.data;
 
+  // check if tokenMint is valid
+  const tokenMintExist = await prisma.creatorToken.findUnique({ where : { tokenMintAddress: tokenMint } });
+  if(tokenMintExist === null) {
+    return res.status(400).send("Invalid token mint provided.");
+  }
+
   // Check if wallet matches
   if (req.user && req.user.walletAddress !== walletAddress) {
     return res.status(403).send("Forbidden");
